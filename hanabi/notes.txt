@@ -1,0 +1,49 @@
+
+#===============================================================================
+# ITERATIVE Q-LEARNING
+#===============================================================================
+
+Initiate: 
+randomly
+
+for each iteration: 
+	*update others' states*, stack with board and known self state 
+		update others' states: write separately
+		stack states: separate stack function 
+	choose action based on some policy 
+	*update board and self state*, stack with others' states 
+		update board: within action functions [DONE]
+		update self state: write separately 
+		stack states: separate stack function 
+
+	update weights according previous weight, previous state, new state 
+
+
+ONLY PLAYER: (make copies before/after action)
+	others' cards 
+	belief state 
+
+ALL PLAYERS: (UPDATE EVERY TIME)
+	hint tokens
+	bombs 
+	played stack
+	discarded stack
+
+
+#===============================================================================
+# NOTES
+#===============================================================================
+
+ELIMINATION: flip bool? 
+
+Because we need s-a-s' sequence, it's better to make a new copy of the states 
+in each iteration, updated after the action. 
+
+Make new player class? 
+old state
+new state 
+old/new features?
+
+Is it important to know if the opponent has been hinted? 
+updates to my hand in the functions that play the action. 
+	i have to update my own beliefs after that however  

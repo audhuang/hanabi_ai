@@ -1,0 +1,312 @@
+\documentclass[a4paper]{article}
+
+\usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage[colorinlistoftodos]{todonotes}
+\usepackage{natbib}
+%\usepackage{cite}
+\usepackage{amsfonts,amssymb}
+\usepackage{mathtools}
+
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\argmin}{arg\,min}
+\newcommand{\abs}[1]{\lvert#1\rvert}
+\newcommand{\norm}[1]{\left\|#1\right\|}
+
+\title{LQR, Inverse Reinforcement Learning, Learning from Expert Demonstration and Applications to Helicopter Control}
+
+\author{Hoang M. Le}
+
+%\date{\today}
+
+\begin{document}
+\maketitle
+
+%\begin{abstract}
+%Your abstract.
+%\end{abstract}
+
+\section{Introduction}
+
+This set of notes aims to provide a theoretical road map to understand the helicopter control application.\cite{abbeel2007application}. 
+
+Typically a reinforcement learning problem can be described by a Markov Decision Process (MDP) consisting of a sextuple $\left(\mathcal{S}, \mathcal{A}, \mathcal{T},H, s(0), \mathcal{R}\right)$ where $\mathcal{S}$ is the set of states; $\mathcal{A}$ is the set of actions (or control inputs), $T$ is the dynamics model; H is the time horizon; $s(0)\in\mathcal{S}$ is the initial state; $\mathcal{R}:\mathcal{S}\times\mathcal{A}\rightarrow \mathbb{R}$ is the reward (cost) function.  
+
+
+As we deal with continuous state and action space, the focus is on ()discrete-time) continuous dynamical systems where the transition dynamics can be described by a (non-linear) function $f$: $x_{t+1} = f(x_t,u_t)$. 
+
+A policy $\pi$ is a mapping from states $x\in\mathcal{S}$ to actions $u\in\mathcal{A}$. Acting according to policy $\pi$ yields expected sum of rewards $\mathbb{E}\left[\sum_{t=0}^H \mathcal{R}(x_t,u_t | \pi)\right]$ (this is also called value function). The goal is to find an optimal policy $\pi^*$ that maximizes the expected sum of rewards: $\pi^* = \argmax_{\pi}\left[\sum_{t=0}^H \mathcal{R}(x_t,u_t | \pi)\right]$. 
+
+\section{Linear Quadratic Regulator and Iterative LQR}
+\label{lqr}
+\textbf{Motivation.} Key question from this section is: assume that we know the \textit{dynamics} and \textit{cost functions}, how do we derive optimal actions (design controller) to minimize the cost / maximize rewards? 
+
+We start with a special case of the general MDP framework where optimal policy can be computed exactly using dynamic programming. 
+\subsection{LQR for Linear Time Invariant Systems}
+
+We focus on discrete-time system with linear dynamics: $x_{t+1} = Ax_t+Bu_t$ where $x_t\in\mathcal{S}\subset\mathbb{R}^n, u_t\in\mathcal{A}\subset\mathbb{R}^m$ are continuous state and action (a.k.a control input) representation. The initial condition is $x_0 = x^{init}$. For now let's assume $A\in\mathbb{R}^{n\times n}$ and $B\in\mathbb{R}^{n\times m}$ are independent of time $t$ - this is called Linear Time Invariant (LTI) dynamical system in classical control. We'll see later that our derivations of optimal control extend naturally to the case where $A=A_t$ and $B=B_t$ dependent on time (Linear Time Varying or LTV system). 
+
+Assume reward function given by the quadratic form:
+\begin{equation}
+R(x_t,u_t) = -x_t^\intercal Qx_t - u_t^\intercal Ru_t
+\end{equation}
+where $Q=Q^\intercal\succeq 0$ and $R=R^\intercal\succeq 0$ are positive semidefinite matrices. 
+
+Assume for now that we know $A,B,Q,R$. Key question from this section is: How do we derive optimal action (design controller) for linear dynamical systems with quaratic cost? This basic setting is the simplified building-block of the Differential Dynamic Programming (DDP) method used for helicopter control (section 3.2 of \cite{abbeel2007application}). %This basic setting is attractive because we can solve the optimal control problem exactly with standard linear algebra operations. 
+
+Note the interpretation of the quadratic cost function: We want to drive the system from an initial condition $x_0 = x^{init}$ to the equilibrium $(x^*,u^*) = (0,0)$ with "minimum actions" $u_0,\ldots,u_H$ (see figure \ref{fig:basic_lqr}). By reframing the state variable $x$ and control variable $u$, we can easily extend this framework to the case of trajectory following.
+\begin{figure}[h]
+	\centering
+	\includegraphics[scale=0.04]{basic_lqr_2.jpg}
+	%	\vspace{-0.18in}
+	\caption{\textit{Basic goal of LQR: drive a linear system towards equilibrium}}
+	\label{fig:basic_lqr}
+\end{figure}
+
+For $t=0,\ldots,H$ define the "cost-to-go"  $V_t:\mathbb{R}^n\rightarrow\mathbb{R}$ by the recursion:
+\begin{align}
+V_{t+1}(x) &= \min\limits_{u}x^\intercal Qx+u^\intercal u+\sum\limits_{x^\prime = Ax+Bu}V_t(x^\prime) \\
+&= \min\limits_{u}\left[ x^\intercal Qx+u^\intercal Ru+V_t(Ax+Bu)\right]
+\end{align}
+
+LQR is special because all cost-to-go functions take the quadratic form $V_t(x) = x^\intercal P_t x$, for all $x\in\mathbb{R}^n$. This can be proved by backward induction on $t$. 
+
+First note that $V_T(x) = x^\intercal Q x$ is quadratic in $x$, by definition of the cost function. Then assume $V_t(x) = x^\intercal P_t x$ for all $x$, we have:
+\begin{align}
+V_{t-1}(x) &= \inf\limits_{u} \left[ x^\intercal Qx+u^\intercal Ru+V_t(Ax+Bu) \right] \\
+&= \inf\limits_{u} \left[ x^\intercal Qx+u^\intercal Ru+(Ax+Bu)^\intercal P_t (Ax+Bu) \right] \label{eq:quad_obj} \\
+&= x^\intercal \underbrace{\left(A^\intercal P_tA+Q-(A^\intercal P_t B)(B^\intercal P_t B)^{-1}(B^\intercal P_t A)\right)}_{P_{t-1}}x
+\label{eq:gradient_soln}
+\end{align}
+where equation \eqref{eq:gradient_soln} is obtained by setting the gradient of expression from \eqref{eq:quad_obj} w.r.t. $x$ to $0$. This enables exact, dynamic programming solution to the optimal policy via the Ricatti recursion:
+\begin{enumerate}
+\item initialize $P_H \coloneqq Q$
+\item for each $t=H,H-1,\ldots,1$ set:
+\begin{equation}
+P_{t-1} = A^\intercal P_tA+Q-(A^\intercal P_t B)(B^\intercal P_t B)^{-1}(B^\intercal P_t A)
+\end{equation}
+\item at each step, the optimal action (a.k.a control input) is given by
+\begin{equation}
+u^*_t = \underbrace{-(B^\intercal P_tB+R)^{-1}B^\intercal P_tA}_{K_t}x_t
+\end{equation}
+\end{enumerate}
+This is the well-known result in optimal control policy for the LQR problem is a linear feedback controller, which can be efficiently computed using dynamic programming. The value function and cost-to-go for any time step $t$ is given by $V_t(x) = x^\intercal P_t x$.
+\subsection{LQR for Affine Time Varying Systems}
+Note that the derivations above carry exactly to the time varying systems, where the dynamics satisfies:
+\begin{equation}
+x_{t+1} = A_t x_t + B_t u_t
+\end{equation}
+with the same quadratic cost function $x_t^\intercal Qx_t+u_t^\intercal Ru_t$.
+
+The Ricatti recursion for optimal policy looks exactly the same as before, except with time-dependent $A_t, B_t$:
+\begin{align}
+P_{t-1} &= A_t^\intercal P_tA_t+Q-(A_t^\intercal P_t B_t)(B_t^\intercal P_t B_t)^{-1}(B_t^\intercal P_t A_t) \\
+u^*_t &= K_t x_t = -(B_t^\intercal P_tB_t+R)^{-1}B_t^\intercal P_tA_tx_t
+\end{align}
+Similar solutions easily extend to time-varying quadratic cost with $Q=Q_t$ and $R=R_t$, although we don't need to consider them for the helicopter application. 
+
+%Now suppose that we have an affine system instead of linear system:
+%\begin{equation}
+%x_{t+1} = c_t+A_tx_t+B_tu_t
+%\end{equation}
+%A simple change of state variable $x_t^\prime = \begin{bmatrix}
+%x_t \\ 1
+%\end{bmatrix}, A_t^\prime = \begin{bmatrix}
+%A_t & c_t \\ 0 & 1
+%\end{bmatrix}, B_t^\prime = \begin{bmatrix}
+%B \\ 0
+%\end{bmatrix}$ will yield a linear time varying system:
+%\begin{equation}
+%x_{t+1}^\prime = \begin{bmatrix}
+%x_{t+1} \\ 1
+%\end{bmatrix} = \begin{bmatrix}
+%A_t & c_t \\ 0 & 1
+%\end{bmatrix} \begin{bmatrix}
+%x_t \\ 1
+%\end{bmatrix} + \begin{bmatrix}
+%B \\ 0
+%\end{bmatrix}u_t = A_t^\prime x_t^\prime + B_t^\prime u_t
+%\end{equation}
+\subsection{LQR Around of Trajectory with Non-Linear Dynamics}
+\label{linearize_lqr}
+Suppose we have a non-linear dynamical systems (discrete time):
+\begin{equation}
+x_{t+1} = f(x_t,u_t), x_0 = x^{init}
+\end{equation}
+and a method to generate a trajectory $\{x^*_t, u^*_t \}_{t=0}^H$ that satisfies this dynamics. We want to stabilize the system around this trajectory (because running $u^*_t$ on a real system may not necessarily result in $x^*_t$ due to modeling errors and noises). Note that this is different from the goal of keeping the system around a fixed equilibrium point in the basic LTI LQR setting. 
+
+The goal of this trajectory following problem becomes:
+\begin{align}
+\min_{u_0,\ldots,u_H}&\sum_{t=0}^H (x_t-x^*_t)^\intercal Q (x_t-x^*_t) + (u_t-u^*_t)^\intercal R(u_t-u^*_t) \\
+&\text{s.t. } x_{t+1} = f(x_t,u_t)
+\end{align}
+We linearize the non-linear system around the desired trajectory by first-order Taylor expansion as follows:
+\begin{equation}
+x_{t+1} \approx f(x^*_t,u^*_t) + \underbrace{\frac{\partial f}{\partial x}(x^*_t,u^*_t)}_{A_t}(x_t-x^*_t) + \underbrace{\frac{\partial f}{\partial u}(x^*_t,u^*_t)}_{B_t}(u_t-u^*_t)
+\end{equation}
+where $A_t$ and $B_t$ are the Jacobian matrices of $f$ w.r.t. $x$ and $u$, evaluated at points along the trajectory. This linearization transforms the original problem into a linear time varyting (LTV) LQR problem with the approximate linear dynamics:
+\begin{equation}
+x_{t+1} - x^*_{t+1} \approx A_t(x_t - x^*_t) + B_t(u_t - u^*_t)
+\end{equation}
+\subsection{Following Expert Trajectory with Iterative LQR}
+Imagine we have an expert trajectory $\{x^*_t, u^*_t\}$ that we wish to follow. 
+
+As before, assume we know the dynamics of the non-linear system: $x_{t+1} = f(x_t,u_t), x_0 = x^{init}$, and the objective is to minimize:
+\begin{equation}
+V(u_0,\ldots,u_H) = \sum_{t=0}^H (x_t-x^*_t)^\intercal Q (x_t-x^*_t) + (u_t-u^*_t)^\intercal R(u_t-u^*_t)
+\end{equation}
+For a given sequence of action $u$, we could simulate the system to find $x$ using $x_{t+1} = f(x_t,u_t)$. \textbf{The key problem} here is that the trajectory $\{x_t,u_t\}$ may be far away from the desired expert trajectory $\{x^*_t,u^*_t\}$, and thus local approximation by linearizing around the current trajectory $\{x_t,u_t\}$ as described in subsection \ref{linearize_lqr} does not guarantee to take us closer to the expert trajectory. As can be seen from figure \ref{fig:expert_following}.
+\begin{figure}[h]
+	\centering
+	\includegraphics[scale=0.04]{expert_following_2.jpg}
+%	\vspace{-0.18in}
+	\caption{\textit{Linearization around current trajectory may not converge to desired expert trajectory. Thus iterative LQR is used to update the action (control law)}}
+	\label{fig:expert_following}
+\end{figure}
+To address this problem, the technique referred to as Differential Dynamic Programming (section 3.2 of \cite{abbeel2007application}) is used to iteratively update the actions (or control inputs) as follows:
+\begin{itemize}
+\item Initialize with some guess of $u = \{u_0,\ldots,u_H\}$
+\item With each iteration, given the current $u$:
+\begin{enumerate}
+\item simulate the system to find $x$, using $x_{t+1} = f(x_t,u_t)$
+\item linearize around the current trajectory (as desribed in subsection \ref{linearize_lqr}) to obtain a linear system
+\begin{align}
+\bar{x}_{t+1} &= A_t\bar{x}_t + B_t\bar{u}_t \\
+\text{where } A_t &= \frac{\partial f}{\partial x}(x_t,u_t), B_t = \frac{\partial f}{\partial u}(x_t,u_t)
+\end{align}
+\item solve time-varying LQR problem with cost
+\begin{equation}
+V = \sum_{t=0}^H (x_t+\bar{x}_t - x^*_t)^\intercal Q (x_t+\bar{x}_t - x^*_t) + (u_t+\bar{u}_t - u^*_t)^\intercal R (u_t+\bar{u}_t - u^*_t)
+\end{equation}
+\item update $u_t\coloneqq u_t+\bar{u}_t$ and repeat
+\end{enumerate}
+\end{itemize}
+\underline{Remark:} Note that the full version of Differential Dynamic Programming involves not only linear approximation of dynamics but also quadratic approximation of the cost function. The technique used in \cite{abbeel2007application} is essentially iterative LQR, not full-blown DDP.
+
+\section{Inverse Reinforcement Learning for Learning Cost Function}
+\label{inverse_rl}
+\textbf{Motivation.} So far we have derived optimal policy for discrete-time, continuous space and action dynamical systems with \textbf{known} dynamics and quadratic cost function:
+\begin{align}
+x_{t+1} &= f(x_t,u_t) \\
+V(u_0,\ldots,u_H) &= \sum_{t=0}^H x_t^\intercal Qx_t + u_t^\intercal Ru_t
+\end{align}
+In the MDP setting, the typical assumption is that a cost / reward function is given (AlphaGo example: most of the time the cost is 0, cost is -1 or +1 when the game ends). In many cases, however, a natural specification of the cost function is difficult. The problem of deriving a cost / reward function from observed behavior is referred to as inverse reinforcement learning \cite{abbeel2004apprenticeship}. 
+
+
+The key assumption from \cite{abbeel2004apprenticeship} is that the true reward function can be expressed as a linear combination of known "features". 
+
+In the helicopter example, think of the cost matrices $Q$ and $R$ as diagonal matrices:
+\begin{equation}
+Q = \begin{bmatrix}
+  q_1 & 0 & 0 & \dots  & 0 \\
+  0 & q_{2} & 0 & \dots  & 0 \\
+  \vdots & \vdots & \vdots & \ddots & \vdots \\
+  0 & 0 & 0 & \dots  & q_{n}
+\end{bmatrix}, 
+R = \begin{bmatrix}
+r_{1} & 0 & 0 & \dots  & 0 \\
+0 & r_{2} & 0 & \dots  & 0 \\
+\vdots & \vdots & \vdots & \ddots & \vdots \\
+0 & 0 & 0 & \dots  & r_{m}
+\end{bmatrix}
+\end{equation}
+Designing cost matrices $Q$ and $R$ then becomes the problem of designing the coefficients that trade-off different state and action variables. The cost function in this case would become
+\begin{equation}
+x^\intercal Qx + u^\intercal Ru = w^*\cdot\phi(x,u) \text{ where } w^* = \begin{bmatrix}
+q_1 \\ \vdots \\ q_n\\r_1\\ \vdots\\r_m
+\end{bmatrix} \in \mathbb{R}^{m+n}
+\end{equation}
+The unknown vector $w^*$ specifies the relative weighting between different desiderata (see section 3.3 of \cite{abbeel2007application}). 
+
+\textbf{Learning goal.} The expected value of a policy $\pi$ can be expressed as:
+\begin{align}
+\mathbb{E}_{x_0\sim s(0)}\left[V^\pi(x_0)\right] &= \mathbb{E}\left[ \sum_{t=0}^H \mathcal{R}(x_t, u_t) \right] = \mathbb{E}\left[\sum_{t=0}^H w\cdot\phi(x_t,u_t)\right] \\
+&= w\cdot \mathbb{E}\left[\sum_{t=0}^H \phi(x_t,u_t)\right] = w\cdot\mu(\pi)
+\end{align}
+where $\mu(\pi) = \mathbb{E}\left[\sum_{t=0}^H\phi(x_t,u_t)\right]$ is called the \textit{feature expectations}.
+
+To learn such a set of coefficients $w$, we use demonstrations by some expert policy $\pi_{E}$, with the corresponding feature expectation $\mu_E = \mu(\pi_E)$. Assume a bounded set of coefficients $w\in\mathbb{R}^k$ with $\norm{w}_1\leq 1$, \textbf{the goal is to find a policy} $\tilde{\pi}$ such that $\norm{\mu(\tilde{\pi}) -\mu_E}_2\leq\epsilon$, since such a policy $\tilde{\pi}$ will yield:
+\begin{align}
+\left|\mathbb{E}\left[\sum_{t=0}^{H}\mathcal{R}(x_t,u_t) | \pi_E\right]-\mathbb{E}\left[\sum_{t=0}^{H}\mathcal{R}(x_t,u_t) | \pi_E\right]\right| &= \abs{w^\intercal\mu(\tilde{\pi}) -w^\intercal\mu_E} \\
+&\leq \norm{w}_2 \norm{\mu(\tilde{\pi})-\mu_E}_2 \\
+&\leq 1\cdot\epsilon = \epsilon
+\end{align}
+\textbf{Inverse RL Algorithm.} The main algorithm proceeds as follows: (section 3 of \cite{abbeel2004apprenticeship})
+\begin{itemize}
+\item Initialize: randomly pick some policy $\pi_0$, compute (or approximate via Monte Carlo) $\mu_0 = \mu(\pi_0)$
+\item Main Loop: 
+\begin{enumerate}
+\item for each $i\geq1$, compute 
+\begin{equation}
+t_i=\max_{w:\norm{w}_2\leq 1}\min_{j\in\{0,\ldots,i-1\}}w^\intercal(\mu_E-\mu_j) 
+\end{equation}
+and let $w_i$ be the value of $w$ that attains this maximum.
+\item if $t_i\leq\epsilon$, terminate
+\item otherwise, using some RL algorithm to compute the optimal policy $\pi_i$ for the MDP using rewards $\mathcal{R} = w_i^\intercal\phi$
+\item Compute (or estimate) $\mu_i = \mu(\pi_i)$
+\item set $i=i+1$, and go back to step 1
+\end{enumerate}
+\end{itemize}
+Note that the optimization in step 1 of the main loop is equivalent to an SVM optimization problem:
+\begin{align}
+\max_{t,w} &\quad t \\
+\text{s.t. } & w^\intercal\mu_E \geq w^\intercal\mu_j + t, j = 0,\ldots,i-1 \\
+&\norm{w}_2\leq 1
+\end{align}
+
+Suppose the algorithm terminates after $n$ steps with $t_{n+1}\leq\epsilon$, then as a consequence of the optimization problem above, we have:
+\begin{equation}
+\forall w \text{ with } \norm{w}_2\leq 1 \quad \exists i \text{ s.t. } w^\intercal\mu_i \geq w^\intercal\mu_E - \epsilon
+\end{equation}
+In particular, since $\norm{w^*}_2 \leq \norm{w^*}_1 \leq 1$, this means that there is at least one policy among $\pi_0,\ldots, \pi_n$ whose performance under $\mathcal{R}^*$ is at least as good as the expert's performance minus $\epsilon$.
+
+\textbf{Analysis.} The algorithm is guaranteed to terminate after $n = O(\frac{k}{\epsilon^2}\log\frac{k}{\epsilon})$ iterations (theorem 1 of \cite{abbeel2004apprenticeship}). Finally, although the algorithm optimizes over $\pi_E$, this is often unknown and thus $m$ different Monte Carlo samples of expert trajectories are obtained to provide an estimate $\hat{\pi}_E$ of $\pi_E$ (empirical mean of $m$ estimates). Theorem 2 of \cite{abbeel2004apprenticeship} provides a sufficient number of expert trajectories needed to guarantee the correctness of the algorithm with high probability. See \cite{abbeel2004apprenticeship} for detailed theorem statement and proof. 
+\section{Learning Dynamics from Expert Demonstrations}
+\textbf{Motivation.} Reinforcement learning techniques from section \ref{lqr} and section \ref{inverse_rl} assume that somehow the dynamics of the system is known. In fact, this is frequently the most difficult part of the learning problem. Several existing methods ($E^3$,Q-learning, tree search) require extensive exploration to accurately learn the dynamics, which could be computationally intractable, or could lead the systems to unsafe trajectories (e.g. the helicopter may crash while trying to aggressively explore poorly modeled parts of the state space). The key idea from \cite{abbeel2005exploration} leverages expert demonstrations to lessen this burden on exploration and focus the learning on repeatedly execute the exploitation policies. 
+
+For the helicopter control application, we assume \textit{linearly parameterized dynamics} given by:
+\begin{equation}
+x_{t+1} = A\phi(x_t)+Bu_t+w_t
+\end{equation}
+where $\phi$ is a feature mapping of the state space. Note that this is \textbf{not a linear dynamical system}, only a linearly parameterized one, since $\phi$ may be non-linear. The process noise $w_t$ is assumed to be IID multivariate Gaussian with known variance. The \underline{key question from this section} is: how do we estimate matrices $A$ and $B$ from expert data collected from expert policy $\pi_E$. 
+
+\textbf{Algorithm.} The rephrased version of the \textbf{main algorithm} proceeds as follows (section 4 of \cite{abbeel2005exploration}):
+\begin{itemize}
+\item given $\alpha>0$, parameters $N_E$ and $k_1$
+\item Initialize: run $N_E$ trials from expert $\pi_E$. Collect the state-action trajectories during these trials. Estimate the value function $\widehat{V}(\pi_E)$ of expert $\pi_E$ by averaging the sum of rewards in each of $N_E$ trials. Set i = 1
+\item Main Loop:
+\begin{enumerate}
+\item \textit{aggregate the state-action trajectories from (unsuccessful) test to the training set} so far, and use the combined data set to estimate $A$ and $B$ using regularized linear regression. Call the estimated dynamics $\widehat{T}_i$
+\item derive the optimal policy of the system with dynamics $\widehat{T}_i$ using (iterative) LQR. Call this policy $\pi_i$
+\item evaluate the value function of $\pi_i$ by running $k_1$ trials on the real system. Let $\widehat{V}(\pi_i)$ be the average sum of rewards of the $k_1$ trials
+\item If $\widehat{V}(\pi_i)\geq \widehat{V}(\pi_E)-\alpha/2$, return $\pi_i$ and exit. Otherwise set $i=i+1$ and return to step 1.
+\end{enumerate}
+\end{itemize}
+For the regularized linear regression step from step 1 of the main loop, the $k^{th}$ rows of $A$ and $B$ are estimated by:
+\begin{equation}
+\argmin_{A_{k,:},B_{k,:}}\sum_{j}\left(x_{next}^{(j)}-(A_{k,:}\phi(x_{curr}^{(j)}) +B_{k,:}u_{curr}^{(j)} )\right)^2+\frac{1}{\lambda^2}(\norm{A_{k,:}}_2^2 +\norm{B_{k,:}}_2^2)
+\end{equation}
+where $j$ indexes over all state-action-state triples $\{(x_{curr}^{(j)}, u_{curr}^{(j)},x_{next}^{(j)} )\}_j$ occuring after each other in the trajectories observed for the system.
+
+\textbf{Analysis.} The key takeaway from theorem 3 (main theorem of \cite{abbeel2005exploration}) is that using a polynomial number of trials $N_E, k_1$ and after a polynomial number of iterations, the returned policy will be approximately optimal, in the sense that the \textit{true} value function $V(\pi)$ of the returned policy $\pi$ will be no less than $\alpha$ within the true value function of the expert policy, with high probability. 
+
+
+The proof rests on showing the following two facts:
+\begin{enumerate}
+\item After we have collected sufficient data from the expert, the estimated model is accurate for evaluating
+the value function of the expert’s policy in every iteration of the algorithm. (Note this does not merely require that the model has to be accurate after the $N_E$ trials under the expert’s policy, but also has to stay accurate
+after extra data is collected from testing the policies $\{\pi_i\}$)
+\item One can visit inaccurately modeled state-action pairs only a “small” number of times until all state-action pairs are accurately modeled
+\end{enumerate}
+
+Below is a high-level intuition behind how these two facts are proved.  After we have collected sufficient data from the expert, the state-action pairs that are visited often under the expert’s policy are modeled well. From the Simulation Lemma (Lemma 1 from \cite{abbeel2005exploration}), we know that an accurate model of the state-action pairs visited often under the expert’s policy is sufficient for accurate evaluation of the value function of the expert’s policy. This establishes (1). Every time an inaccurate state-action pair is visited, the data collected for that state-action pair can be used to improve the model. However the model can be improved only a “small” number of times until it is accurate for all state-action pairs. This establishes (2.)
+
+\newpage
+\section*{Acknowledgement}
+The notes, especially the optimal control sections, were prepared in consultation with Pieter Abbeel's lecture slides at UC Berkeley's CS287 class and lecture slides from Stephen Boyd's EE363 class at Stanford. 
+\bibliographystyle{abbrv}
+\bibliography{helicopter_notes}
+
+\end{document}
