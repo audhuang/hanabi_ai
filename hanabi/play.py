@@ -57,54 +57,54 @@ if __name__ == '__main__':
 	# print(g.players[1].beliefs[:, :, 0])
 
 	# test that playing works
-	# g.play(0, 0) 
-	# print("\n")
+	g.play(0, 0) 
+	print("\n")
 
-	# print("beliefs: ")
-	# for i in range(NUM_HAND): 
-	# 	print(g.players[0].beliefs[:, :, i])
-	# print("others: ")
-	# for i in range(NUM_HAND): 
-	# 	print(g.players[0].others[:, :, i, 0])
-	# print("\n")
+	print("beliefs: ")
+	for i in range(NUM_HAND): 
+		print(g.players[0].beliefs[:, :, i])
+	print("others: ")
+	for i in range(NUM_HAND): 
+		print(g.players[0].others[:, :, i, 0])
+	print("\n")
 
-	# print("beliefs: ")
-	# for i in range(NUM_HAND): 
-	# 	print(g.players[1].beliefs[:, :, i])
-	# print("others: ")
-	# for i in range(NUM_HAND): 
-	# 	print(g.players[1].others[:, :, i, 0])
-	# print("hints: ", g.players[0].hints, g.players[1].hints)
-	# print("bombs: ", g.players[0].bombs, g.players[1].bombs)
+	print("beliefs: ")
+	for i in range(NUM_HAND): 
+		print(g.players[1].beliefs[:, :, i])
+	print("others: ")
+	for i in range(NUM_HAND): 
+		print(g.players[1].others[:, :, i, 0])
+	print("hints: ", g.players[0].hints, g.players[1].hints)
+	print("bombs: ", g.players[0].bombs, g.players[1].bombs)
 
 	
 	# test that hinting works 
-	# g.hint(0, 1, 'value', 0) 
-	# print("\n")
-	# for i in range(NUM_HAND): 
-	# 	print(g.players[1].beliefs[:, :, i])
-	# print("hints: ", g.players[0].hints, g.players[1].hints)
+	g.hint(0, 1, 'value', 0) 
+	print("\n")
+	for i in range(NUM_HAND): 
+		print(g.players[1].beliefs[:, :, i])
+	print("hints: ", g.players[0].hints, g.players[1].hints)
 
 	# test that discarding works
-	# g.players[0].beliefs[:, :, 1] = np.zeros([NUM_COLORS, NUM_VALUES])
-	# g.discard(0, 0) 
-	# print("\n")
+	g.players[0].beliefs[:, :, 1] = np.zeros([NUM_COLORS, NUM_VALUES])
+	g.discard(0, 0) 
+	print("\n")
 
-	# for i in range(NUM_HAND): 
-	# 	print(g.players[0].beliefs[:, :, i])
-	# print("\n")
+	for i in range(NUM_HAND): 
+		print(g.players[0].beliefs[:, :, i])
+	print("\n")
 
-	# for i in range(NUM_HAND): 
-	# 	print(g.players[1].beliefs[:, :, i])
-	# print("hints: ", g.players[0].hints, g.players[1].hints)
+	for i in range(NUM_HAND): 
+		print(g.players[1].beliefs[:, :, i])
+	print("hints: ", g.players[0].hints, g.players[1].hints)
 
 	
-	# test that hinting works 
-	# g.hint(0, 1, 'value', 0) 
-	# print("\n")
-	# for i in range(NUM_HAND): 
-	# 	print(g.players[1].beliefs[:, :, i])
-	# print("hints: ", g.players[0].hints, g.players[1].hints)
+	test that hinting works 
+	g.hint(0, 1, 'value', 0) 
+	print("\n")
+	for i in range(NUM_HAND): 
+		print(g.players[1].beliefs[:, :, i])
+	print("hints: ", g.players[0].hints, g.players[1].hints)
 
 
 
