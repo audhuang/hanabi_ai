@@ -84,7 +84,7 @@ class game(object):
 		k = 0
 		for i in range(NUM_PLAYERS): 
 			if i != index: 
-				for j in range(NUM_HAND): 
+				for j in range(len(self.hands[i])): 
 					others_hands[self.hands[i][j].color, (self.hands[i][j].value-1), j, k] = 1
 				k += 1
 
@@ -118,7 +118,7 @@ class game(object):
 					self.hands[player][i].know('color')
 					indices.append(i)
 
-		print("hinted indices: ", indices)
+		# print("hinted indices: ", indices)
 
 		# make sure we can actually hint something before updating anything
 		if indices != []: 
@@ -153,25 +153,47 @@ class game(object):
 		disc = self.hands[player].pop(index)
 		self.discarded.append(disc)
 		self.discarded_features[disc.color, (disc.value-1)] += 1
-		print("discard: ", disc.color, disc.value)
-
-		# draw
-		new = self.deck.draw()
-		self.hands[player].append(new)
-		print("new: ", new.color, new.value)
+		# print("discard: ", disc.color, disc.value)
 
 		# update hints
 		if self.hints <= 7: 
 			self.hints += 1
 
-		# update knowns and beliefs 
-		for i in range(len(self.hands)): 
-			known = self.total_known_cards(self.get_known_in_hand(i), self.played_features, self.discarded_features) 
-			if i != player: 
-				self.players[i].draw_update(True, known, self.get_others_hands(i), new.color, new.value, self.hints, self.bombs)
-			elif i == player: 
-				self.players[player].discard_draw_update(True, known, index, disc.color, disc.value, self.hints, self.bombs)	
+		# # draw
+		# new = self.deck.draw()
+		# self.hands[player].append(new)
+		# print("new: ", new.color, new.value)
 
+
+		# # update knowns and beliefs 
+		# for i in range(len(self.hands)): 
+		# 	known = self.total_known_cards(self.get_known_in_hand(i), self.played_features, self.discarded_features) 
+		# 	if i != player: 
+		# 		self.players[i].draw_update(True, known, self.get_others_hands(i), new.color, new.value, self.hints, self.bombs)
+		# 	elif i == player: 
+		# 		self.players[player].discard_draw_update(True, known, index, disc.color, disc.value, self.hints, self.bombs)	
+
+		# if there are cards remaining, draw
+		if self.deck.num_cards > 0: 
+			new = self.deck.draw()
+			self.hands[player].append(new)
+			print("new: ", new.color, new.value)
+		
+			# update knowns and beliefs 
+			for i in range(len(self.hands)): 
+				known = self.total_known_cards(self.get_known_in_hand(i), self.played_features, self.discarded_features) 
+				if i != player: 
+					self.players[i].draw_update(True, known, self.get_others_hands(i), new.color, new.value, self.hints, self.bombs)
+				elif i == player: 
+					self.players[player].discard_draw_update(True, known, index, disc.color, disc.value, self.hints, self.bombs)	
+		# if deck is empty, dont draw
+		else: 
+			for i in range(len(self.hands)): 
+				known = self.total_known_cards(self.get_known_in_hand(i), self.played_features, self.discarded_features) 
+				if i != player: 
+					self.players[i].draw_update(False, known, self.get_others_hands(i), 0, 0, self.hints, self.bombs)
+				elif i == player: 
+					self.players[player].discard_draw_update(False, known, index, disc.color, disc.value, self.hints, self.bombs)	
 		
 
 	# play a card at index, draw another to the right side of hand. 
@@ -181,7 +203,7 @@ class game(object):
 	def play(self, player, index): 
 		# take the card out
 		c = self.hands[player].pop(index)
-		print("play: ", c.color, c.value)
+		# print("play: ", c.color, c.value)
 	
 		# check if it can be added to the stack by seeing if it has
 		# a 1-higher value for a color
@@ -193,16 +215,15 @@ class game(object):
 				success = True
 
 		# if completed a stack, add a hint and update arrays
-		if success == True and c.value == max(VALUES): 
-			self.hints += 1
-			
+		if success == True and c.value == max(VALUES) and self.hints < 8: 
+			self.hints += 1			
 
 		# if fail to play, discard and update arrays, and use up a bomb
 		elif success == False: 
 			self.discarded.append(c)
 			self.discarded_features[c.color, (c.value-1)] += 1
 			self.bombs -= 1
-		print("play result: ", success)
+		# print("play result: ", success)
 
 		# if there are cards remaining, draw
 		if self.deck.num_cards > 0: 

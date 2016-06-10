@@ -30,8 +30,8 @@ for i in range(NUM_VALUES):
 action = np.zeros(NUM_HAND * 2 + NUM_OTHERS * (NUM_COLORS + NUM_VALUES))
 
 nu = 0.1 # learning rate  
-gamma = 0.1 # discount factor 
-epsilon = 0.1
+gamma = 0.5 # discount factor 
+epsilon = 0.5 # softmax greed factor 
 
 #===============================================================================
 # Iterative Q-Learning Helper Functions
@@ -91,7 +91,7 @@ def play_update(num_cards, index, hand, played, known, hints, bombs, beliefs, ot
 	if num_cards > 0: 
 		beliefs = np.insert(beliefs, (NUM_HAND-1), (FRESH_BELIEF-known), axis=2)
 	else: 
-		beliefs = np.insert(beliefs, (NUM_HAND-1), np.zeros(FRESH_BELIEF.size), axis=2)
+		beliefs = np.insert(beliefs, (NUM_HAND-1), np.zeros([5, 5, 1]), axis=2)
 
 
 	state = np.hstack((hints, bombs))
@@ -107,7 +107,8 @@ def action_probabilities(a, i):
 	
 	if a >= 0 and a < NUM_HAND: 
 		if g.deck.num_cards == 0: 
-			return (0, 0)
+			state_new = np.zeros(g.weights.shape)
+			reward_new = 0
 		else: 
 			state_new, reward_new = discard_update(a, g.hands[i], 
 				g.players[i].known, g.players[i].hints, g.players[i].bombs, 
@@ -121,7 +122,8 @@ def action_probabilities(a, i):
 		if g.hints >= 0: 
 			state_new, reward_new = hint_update(state_old)
 		else: 
-			return (0, 0)
+			state_new = np.zeros(g.weights.shape)
+			reward_new = 0
 
 	return state_new, reward_new
 
@@ -131,7 +133,11 @@ def action_probabilities(a, i):
 def softmax_policy(probs): 
 	greatest = np.argmax(probs)
 
-	norm_probs = probs / np.sum(probs)
+	if np.sum(probs): 
+		norm_probs = np.zeros(probs.shape)
+	else: 
+		norm_probs = probs / np.sum(probs)
+	
 	temp = np.random.rand()
 	norm_probs = norm_probs - norm_probs[0]
 	soft_greatest = 0
@@ -152,13 +158,13 @@ def softmax_policy(probs):
 # do the action specified by a 
 def check_action(a, player):
 	if a >= 0 and a < NUM_HAND: 
-		print("discard " + str(a))
-		f.write("discard " + str(a))
+		# print("discard card # " + str(a + 1))
+		f.write("discard card # " + str(a + 1) + "\n")
 		g.discard(player, a)
 		
 	elif a >= NUM_HAND and a < (NUM_HAND * 2): 
-		print("play card # " + str(a - NUM_HAND))
-		f.write("play card # " + str(a - NUM_HAND))
+		# print("play card # " + str(a - NUM_HAND + 1))
+		f.write("play card # " + str(a - NUM_HAND + 1) + "\n")
 		g.play(player, (a - NUM_HAND))
 		
 	else: 
@@ -171,13 +177,14 @@ def check_action(a, player):
 
 				index = temp - i * (NUM_COLORS + NUM_VALUES)
 				if index < NUM_COLORS: 
-					print("hint " + 'color' + str(index))
-					f.write("hint " + 'color' + str(index))
+					# print("hint " + 'color' + str(index + 1))
+					f.write("hint " + 'color' + str(index + 1) + "\n")
 					g.hint(player, target, 'color', index)
 
 				else: 
-					print("hint " + 'value' + str(index - NUM_COLORS))
-					g.hint(player, target, 'value', (index - NUM_COLORS))
+					# print("hint " + 'value' + str(index - NUM_COLORS))
+					f.write("hint " + 'value' + str(index - NUM_COLORS + 1) + "\n")
+					g.hint(player, target, 'value', (index - NUM_COLORS + 1))
 					
 
 
@@ -189,66 +196,132 @@ def check_action(a, player):
 # implements q-learning
 if __name__ == '__main__':
 
-	g = game()
-	f = open('output.txt', 'w')
+	temp_weights = np.empty([NUM_COLORS * NUM_VALUES * NUM_HAND * NUM_PLAYERS + 2])
+	temp_weights.fill(0.1)
 
-	count = 0
 	scores = []
-	hints = []
+	for i in range(5): 
+		g = game()
+		g.weights = temp_weights
 
-	while g.lost() == False: 
-		count += 1
-		print("ITERATION " + str(count))
-		f.write("ITERATION " + str(count))
+		f = open('output.txt', 'w')
+		count = 0
+		hints = []
 
-		for i in range(NUM_PLAYERS): 
+		while True: 
+			count += 1
+			print("ITERATION " + str(count))
+			f.write("ITERATION " + str(count) + "\n")
 
-			print("PLAYER " + str(i))
-			f.write("player " + str(i))
-
-			g.print_hands()
 			for i in range(NUM_PLAYERS): 
+
+				print("PLAYER " + str(i))
+				f.write("player " + str(i) + "\n")
+
 				for j in range(NUM_HAND): 
-					f.write(g.hands[i][j].name)
-			print("hints: ", g.hints, "bombs: ", g.bombs)
-			print("played: ", g.played)
+					f.write(g.hands[i][j].name + " ")
+				f.write("\n")
+
+				print("hints: ", g.hints, "bombs: ", g.bombs)
+				print("played: ", g.played)
+			
+				score_old = g.score()
+				state_old = g.players[i].new_state 
+				probs = np.empty(action.shape)
+
+				for j in range(len(action)): 
+					state_new, reward_new = action_probabilities(j, i)
+					probs[j] = reward_new + gamma * np.dot(g.weights, state_new)
+				# print("probabilities: " + repr(probs))
+				f.write("probabilities: " + repr(probs)  + "\n")
+
+				# best_action = np.argmax(probs)
+				best_action = softmax_policy(probs)
+
+				# do action 
+				check_action(best_action, i)
+
+				score_new = g.score()
+
+				# update weights 
+				delta = (score_new - score_old) + gamma*np.dot(g.weights, g.players[i].new_state) - np.dot(g.weights, state_old)
+				weight_new = g.weights + nu * delta * state_old
+				# print("new weight" + repr(weight_new))
+				f.write("new weight" + repr(weight_new) + "\n")
+				# print(weight_new)
+
+				g.weights = weight_new
+				# scores.append(g.score())
+				# hints.append(g.hints)
+				if g.lost() == True: 
+					break 
+			
+			if g.lost() == True: 
+				print(g.weights)
+				scores.append(g.score())
+				print("number of cards remaining: ", g.deck.num_cards)
+				temp_weights = g.weights 
+				break 
+			
+			print("\n")
+
 		
-			score_old = g.score()
-			state_old = g.players[i].new_state 
-			probs = np.empty(action.shape)
 
-			for j in range(len(action)): 
-				state_new, reward_new = action_probabilities(j, i)
-				probs[j] = reward_new + gamma * np.dot(g.weights, state_new)
-			# print("probabilities: " + repr(probs))
-			f.write("probabilities: " + repr(probs))
-
-			# best_action = np.argmax(probs)
-			best_action = softmax_policy(probs)
-
-			# do action 
-			check_action(best_action, i)
-
-			score_new = g.score()
-
-			# update weights 
-			delta = (score_new - score_old) + gamma*np.dot(g.weights, g.players[i].new_state) - np.dot(g.weights, state_old)
-			weight_new = g.weights + nu * delta * state_old
-			# print("new weight" + repr(weight_new))
-			f.write("new weight" + repr(weight_new))
-
-			g.weights = weight_new
-			scores.append(g.score())
-			hints.append(g.hints)
-		print("\n")
-
+	print("training scores", scores)
 	plt.figure(1)
 	plt.title("scores")
 	plt.plot(scores)
 
-	plt.figure(2)
-	plt.title("hints")
-	plt.plot(hints)
+	# plt.figure(2)
+	# plt.title("hints")
+	# plt.plot(hints)
+
+	scores = []
+	for i in range(5): 
+		g = game()
+		g.weights = temp_weights
+
+		f = open('output.txt', 'w')
+		count = 0
+		hints = []
+
+		while True: 
+			count += 1
+			print("TEST ITERATION " + str(count))
+
+			for i in range(NUM_PLAYERS): 
+
+				print("hints: ", g.hints, "bombs: ", g.bombs)
+				print("played: ", g.played)
+			
+				score_old = g.score()
+				state_old = g.players[i].new_state 
+				probs = np.empty(action.shape)
+
+				for j in range(len(action)): 
+					state_new, reward_new = action_probabilities(j, i)
+					probs[j] = reward_new + gamma * np.dot(g.weights, state_new)
+				
+
+				best_action = np.argmax(probs)
+
+				# do action 
+				check_action(best_action, i)
+
+				score_new = g.score()
+
+				if g.lost() == True: 
+					break 
+			
+			if g.lost() == True: 
+				print(g.weights)
+				scores.append(g.score())
+				print("number of cards remaining: ", g.deck.num_cards)
+				temp_weights = g.weights 
+				break 
+			
+			print("\n")
+
 
 	plt.show()
 	f.close()

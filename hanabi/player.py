@@ -71,7 +71,7 @@ class player(object):
 		if deck == True: 
 			self.beliefs = np.insert(self.beliefs, (NUM_HAND-1), (FRESH_BELIEF - known), axis=2)
 		elif deck == False: 
-			self.beliefs = np.insert(self.beliefs, (NUM_HAND-1), np.zeros(FRESH_BELIEF.size), axis=2)
+			self.beliefs = np.insert(self.beliefs, (NUM_HAND-1), np.zeros([5, 5, 1]), axis=2)
 		self.hints = hints
 		self.bombs = bombs
 
