@@ -198,10 +198,10 @@ if __name__ == '__main__':
 
 	temp_weights = np.empty([ACTION_NUM, NUM_COLORS * NUM_VALUES * NUM_HAND * NUM_PLAYERS + 2])
 	temp_weights.fill(0.1)
-	temp_weights[(NUM_HAND*2):, :, :] = 0.2 # higher weights for hinting
+	temp_weights[(NUM_HAND*2):, :] = 0.2 # higher weights for hinting
 
 	scores = []
-	for i in range(20): 
+	for i in range(5): 
 		g = game()
 		g.weights = temp_weights
 
@@ -235,21 +235,21 @@ if __name__ == '__main__':
 				f.write("probabilities: " + repr(probs)  + "\n")
 
 				# best_action = np.argmax(probs)
-				best_action = softmax_policy(probs)
+				best = softmax_policy(probs)
 
 				# do action 
-				check_action(best_action, i)
+				check_action(best, i)
 
 				score_new = g.score()
 
 				# update weights 
-				delta = (score_new - score_old) + gamma*np.dot(g.weights, g.players[i].new_state) - np.dot(g.weights, state_old)
-				weight_new = g.weights + nu * delta * state_old
+				delta = (score_new - score_old) + gamma*np.dot(g.weights[best], g.players[i].new_state) - np.dot(g.weights, state_old)
+				weight_new = g.weights[best] + nu * delta * state_old
 				# print("new weight" + repr(weight_new))
 				f.write("new weight" + repr(weight_new) + "\n")
 				# print(weight_new)
 
-				g.weights = weight_new
+				g.weights[best] = weight_new
 				# scores.append(g.score())
 				# hints.append(g.hints)
 				if g.lost() == True: 
