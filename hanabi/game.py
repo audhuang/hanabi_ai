@@ -21,6 +21,7 @@ NUM_HAND = 5
 MULT_DIC = {1: 3, 2: 2, 3: 2, 4: 2, 5: 1}
 NUM_OTHERS = 1
 NUM_PLAYERS = NUM_OTHERS + 1
+ACTION_NUM = NUM_HAND * 2 + NUM_OTHERS * (NUM_COLORS + NUM_VALUES)
 
 ## REWARD???
 ## COLORS AS INDICES INSTEAD?
@@ -52,10 +53,10 @@ class game(object):
 			# cards you see in others' hands
 			known = self.total_known_cards(self.get_known_in_hand(i), self.played_features, self.discarded_features) 
 			# create player with unfucked beliefs 
-			self.players.append(player(known, self.get_others_hands(i), self.hints, self.bombs))
+			self.players.append(player(known, self.get_others_hands(i), self.hints, self.bombs, self.played))
 
 		# weight array used for both players 
-		self.weights = np.empty([NUM_COLORS * NUM_VALUES * NUM_HAND * NUM_PLAYERS + 2])
+		self.weights = np.empty([ACTION_NUM, NUM_COLORS * NUM_VALUES * NUM_HAND * NUM_PLAYERS + 2])
 		self.weights.fill(0.1)
 
 
@@ -159,20 +160,6 @@ class game(object):
 		if self.hints <= 7: 
 			self.hints += 1
 
-		# # draw
-		# new = self.deck.draw()
-		# self.hands[player].append(new)
-		# print("new: ", new.color, new.value)
-
-
-		# # update knowns and beliefs 
-		# for i in range(len(self.hands)): 
-		# 	known = self.total_known_cards(self.get_known_in_hand(i), self.played_features, self.discarded_features) 
-		# 	if i != player: 
-		# 		self.players[i].draw_update(True, known, self.get_others_hands(i), new.color, new.value, self.hints, self.bombs)
-		# 	elif i == player: 
-		# 		self.players[player].discard_draw_update(True, known, index, disc.color, disc.value, self.hints, self.bombs)	
-
 		# if there are cards remaining, draw
 		if self.deck.num_cards > 0: 
 			new = self.deck.draw()
@@ -183,17 +170,17 @@ class game(object):
 			for i in range(len(self.hands)): 
 				known = self.total_known_cards(self.get_known_in_hand(i), self.played_features, self.discarded_features) 
 				if i != player: 
-					self.players[i].draw_update(True, known, self.get_others_hands(i), new.color, new.value, self.hints, self.bombs)
+					self.players[i].draw_update(True, known, self.get_others_hands(i), new.color, new.value, self.hints, self.bombs, self.played)
 				elif i == player: 
-					self.players[player].discard_draw_update(True, known, index, disc.color, disc.value, self.hints, self.bombs)	
+					self.players[player].discard_draw_update(True, known, index, disc.color, disc.value, self.hints, self.bombs, self.played)	
 		# if deck is empty, dont draw
 		else: 
 			for i in range(len(self.hands)): 
 				known = self.total_known_cards(self.get_known_in_hand(i), self.played_features, self.discarded_features) 
 				if i != player: 
-					self.players[i].draw_update(False, known, self.get_others_hands(i), 0, 0, self.hints, self.bombs)
+					self.players[i].draw_update(False, known, self.get_others_hands(i), 0, 0, self.hints, self.bomb, self.played)
 				elif i == player: 
-					self.players[player].discard_draw_update(False, known, index, disc.color, disc.value, self.hints, self.bombs)	
+					self.players[player].discard_draw_update(False, known, index, disc.color, disc.value, self.hints, self.bombs, self.played)	
 		
 
 	# play a card at index, draw another to the right side of hand. 
@@ -235,17 +222,17 @@ class game(object):
 			for i in range(len(self.hands)): 
 				known = self.total_known_cards(self.get_known_in_hand(i), self.played_features, self.discarded_features) 
 				if i != player: 
-					self.players[i].draw_update(True, known, self.get_others_hands(i), new.color, new.value, self.hints, self.bombs)
+					self.players[i].draw_update(True, known, self.get_others_hands(i), new.color, new.value, self.hints, self.bombs, self.played)
 				elif i == player: 
-					self.players[player].discard_draw_update(True, known, index, c.color, c.value, self.hints, self.bombs)	
+					self.players[player].discard_draw_update(True, known, index, c.color, c.value, self.hints, self.bombs, self.played)	
 		# if deck is empty, dont draw
 		else: 
 			for i in range(len(self.hands)): 
 				known = self.total_known_cards(self.get_known_in_hand(i), self.played_features, self.discarded_features) 
 				if i != player: 
-					self.players[i].draw_update(False, known, self.get_others_hands(i), 0, 0, self.hints, self.bombs)
+					self.players[i].draw_update(False, known, self.get_others_hands(i), 0, 0, self.hints, self.bombs, self.played)
 				elif i == player: 
-					self.players[player].discard_draw_update(False, known, index, c.color, c.value, self.hints, self.bombs)	
+					self.players[player].discard_draw_update(False, known, index, c.color, c.value, self.hints, self.bombs, self.played)	
 	
 	# return score, the sum of highest-played cards over the colors
 	def score(self): 

@@ -22,11 +22,11 @@ MULT_DIC = {1: 3, 2: 2, 3: 2, 4: 2, 5: 1}
 FRESH_BELIEF = np.zeros([NUM_COLORS, NUM_VALUES])
 for i in range(NUM_VALUES): 
 	FRESH_BELIEF[:, i] = MULT_DIC[i+1] #/ (len(COLORS) * len(VALUES))
-
+ACTION_NUM = NUM_HAND * 2 + NUM_OTHERS * (NUM_COLORS + NUM_VALUES)
 
 class player(object): 
 
-	def __init__(self, known, others, hints, bombs):
+	def __init__(self, known, others, hints, bombs, played):
 
 		self.known = known
 		self.others = others
@@ -35,17 +35,16 @@ class player(object):
 
 		self.bombs = bombs
 		self.hints = hints 
+		self.played = played 
 
 		self.old_state = self.get_state()
 		self.new_state = self.old_state
-		# self.newest_state = np.hstack(self.beliefs, self.others, self.hints, self.bombs)
-
 
 
 # UPDATE BELIEFS
 
 	def get_state(self): 
-		state = np.hstack((self.hints, self.bombs))
+		state = np.hstack((self.hints, self.bombs, self.played))
 
 		for i in range(NUM_HAND): 
 			temp = self.beliefs[:, :, i].flatten()
@@ -58,7 +57,7 @@ class player(object):
 	# when you discard then draw, remove the card at the index 
 	# change your beliefs because of the discarded card 
 	# insert a fresh one at the rightmost index with updated beliefs
-	def discard_draw_update(self, deck, known, index, color, value, hints, bombs):
+	def discard_draw_update(self, deck, known, index, color, value, hints, bombs, played):
 		# self.newest_state = np.hstack(self.beliefs, self.others, self.hints, self.bombs)
 		# print("old known ", self.known)
 		self.old_state = self.get_state()
@@ -74,11 +73,12 @@ class player(object):
 			self.beliefs = np.insert(self.beliefs, (NUM_HAND-1), np.zeros([5, 5, 1]), axis=2)
 		self.hints = hints
 		self.bombs = bombs
+		self.played = played
 
 		self.new_state = self.get_state()
 
 	# when someone else draws, subtract one from the card they drew
-	def draw_update(self, deck, known, other, color, value, hints, bombs): 
+	def draw_update(self, deck, known, other, color, value, hints, bombs, played): 
 		# print("old known ", self.known)
 		self.others = other 
 		self.known = known
@@ -89,6 +89,7 @@ class player(object):
 
 		self.hints = hints
 		self.bombs = bombs
+		self.played = played
 
 		# self.newest_state = np.hstack(self.beliefs, self.others, self.hints, self.bombs)
 		self.new_state = self.get_state()

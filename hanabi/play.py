@@ -27,7 +27,7 @@ FRESH_BELIEF = np.zeros([NUM_COLORS, NUM_VALUES])
 for i in range(NUM_VALUES): 
 	FRESH_BELIEF[:, i] = MULT_DIC[i+1] #/ (len(COLORS) * len(VALUES))
 
-action = np.zeros(NUM_HAND * 2 + NUM_OTHERS * (NUM_COLORS + NUM_VALUES))
+ACTION_NUM = NUM_HAND * 2 + NUM_OTHERS * (NUM_COLORS + NUM_VALUES)
 
 nu = 0.1 # learning rate  
 gamma = 0.5 # discount factor 
@@ -133,7 +133,7 @@ def action_probabilities(a, i):
 def softmax_policy(probs): 
 	greatest = np.argmax(probs)
 
-	if np.sum(probs): 
+	if np.sum(probs) == 0: 
 		norm_probs = np.zeros(probs.shape)
 	else: 
 		norm_probs = probs / np.sum(probs)
@@ -196,11 +196,12 @@ def check_action(a, player):
 # implements q-learning
 if __name__ == '__main__':
 
-	temp_weights = np.empty([NUM_COLORS * NUM_VALUES * NUM_HAND * NUM_PLAYERS + 2])
+	temp_weights = np.empty([ACTION_NUM, NUM_COLORS * NUM_VALUES * NUM_HAND * NUM_PLAYERS + 2])
 	temp_weights.fill(0.1)
+	temp_weights[(NUM_HAND*2):, :, :] = 0.2 # higher weights for hinting
 
 	scores = []
-	for i in range(5): 
+	for i in range(20): 
 		g = game()
 		g.weights = temp_weights
 
@@ -229,10 +230,8 @@ if __name__ == '__main__':
 				state_old = g.players[i].new_state 
 				probs = np.empty(action.shape)
 
-				for j in range(len(action)): 
-					state_new, reward_new = action_probabilities(j, i)
-					probs[j] = reward_new + gamma * np.dot(g.weights, state_new)
-				# print("probabilities: " + repr(probs))
+				for j in range(ACTION_NUM): 
+					probs[j] = np.dot(weights[j], state_old)
 				f.write("probabilities: " + repr(probs)  + "\n")
 
 				# best_action = np.argmax(probs)
@@ -276,52 +275,62 @@ if __name__ == '__main__':
 	# plt.title("hints")
 	# plt.plot(hints)
 
-	scores = []
-	for i in range(5): 
-		g = game()
-		g.weights = temp_weights
+			# while True: 
+			# count += 1
+			# print("ITERATION " + str(count))
+			# f.write("ITERATION " + str(count) + "\n")
 
-		f = open('output.txt', 'w')
-		count = 0
-		hints = []
+			# for i in range(NUM_PLAYERS): 
 
-		while True: 
-			count += 1
-			print("TEST ITERATION " + str(count))
+			# 	print("PLAYER " + str(i))
+			# 	f.write("player " + str(i) + "\n")
 
-			for i in range(NUM_PLAYERS): 
+			# 	for j in range(NUM_HAND): 
+			# 		f.write(g.hands[i][j].name + " ")
+			# 	f.write("\n")
 
-				print("hints: ", g.hints, "bombs: ", g.bombs)
-				print("played: ", g.played)
+			# 	print("hints: ", g.hints, "bombs: ", g.bombs)
+			# 	print("played: ", g.played)
 			
-				score_old = g.score()
-				state_old = g.players[i].new_state 
-				probs = np.empty(action.shape)
+			# 	score_old = g.score()
+			# 	state_old = g.players[i].new_state 
+			# 	probs = np.empty(action.shape)
 
-				for j in range(len(action)): 
-					state_new, reward_new = action_probabilities(j, i)
-					probs[j] = reward_new + gamma * np.dot(g.weights, state_new)
-				
+			# 	for j in range(len(action)): 
+			# 		state_new, reward_new = action_probabilities(j, i)
+			# 		probs[j] = reward_new + gamma * np.dot(g.weights, state_new)
+			# 	# print("probabilities: " + repr(probs))
+			# 	f.write("probabilities: " + repr(probs)  + "\n")
 
-				best_action = np.argmax(probs)
+			# 	# best_action = np.argmax(probs)
+			# 	best_action = softmax_policy(probs)
 
-				# do action 
-				check_action(best_action, i)
+			# 	# do action 
+			# 	check_action(best_action, i)
 
-				score_new = g.score()
+			# 	score_new = g.score()
 
-				if g.lost() == True: 
-					break 
+			# 	# update weights 
+			# 	delta = (score_new - score_old) + gamma*np.dot(g.weights, g.players[i].new_state) - np.dot(g.weights, state_old)
+			# 	weight_new = g.weights + nu * delta * state_old
+			# 	# print("new weight" + repr(weight_new))
+			# 	f.write("new weight" + repr(weight_new) + "\n")
+			# 	# print(weight_new)
+
+			# 	g.weights = weight_new
+			# 	# scores.append(g.score())
+			# 	# hints.append(g.hints)
+			# 	if g.lost() == True: 
+			# 		break 
 			
-			if g.lost() == True: 
-				print(g.weights)
-				scores.append(g.score())
-				print("number of cards remaining: ", g.deck.num_cards)
-				temp_weights = g.weights 
-				break 
+			# if g.lost() == True: 
+			# 	print(g.weights)
+			# 	scores.append(g.score())
+			# 	print("number of cards remaining: ", g.deck.num_cards)
+			# 	temp_weights = g.weights 
+			# 	break 
 			
-			print("\n")
-
+			# print("\n")
 
 	plt.show()
 	f.close()
