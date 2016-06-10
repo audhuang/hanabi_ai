@@ -54,7 +54,7 @@ def discard_update(index, hand, known, hints, bombs, beliefs, others):
 		known[disc.color, (disc.value - 1)] += 1
 
 	beliefs = np.delete(beliefs, index, axis=2)
-	beliefs[color, (value-1), :] -= 1
+	beliefs[disc.color, (disc.value-1), :] -= 1
 	beliefs = np.insert(beliefs, (NUM_HAND-1), (FRESH_BELIEF-known), axis=2)
 
 	state = np.hstack((hints, bombs))
@@ -66,7 +66,7 @@ def discard_update(index, hand, known, hints, bombs, beliefs, others):
 	return state, reward 
 
 # update state if card at index is played
-def play_update(num_cards, deck, index, hand, played, known, hints, bombs, beliefs, others): 
+def play_update(num_cards, index, hand, played, known, hints, bombs, beliefs, others): 
 	c = hand[index]
 	reward = 0
 
@@ -84,10 +84,10 @@ def play_update(num_cards, deck, index, hand, played, known, hints, bombs, belie
 		hints += 1
 
 	if success == False: 
-		self.bombs -= 1
+		bombs -= 1
 
 	beliefs = np.delete(beliefs, index, axis=2)
-	beliefs[color, (value-1), :] -= 1
+	beliefs[c.color, (c.value-1), :] -= 1
 	if num_cards > 0: 
 		beliefs = np.insert(beliefs, (NUM_HAND-1), (FRESH_BELIEF-known), axis=2)
 	else: 
@@ -109,17 +109,17 @@ def action_probabilities(a, i):
 		if g.deck.num_cards == 0: 
 			return (0, 0)
 		else: 
-			state_new, reward_new = discard_update(index, g.hands[i], 
+			state_new, reward_new = discard_update(a, g.hands[i], 
 				g.players[i].known, g.players[i].hints, g.players[i].bombs, 
 				g.players[i].beliefs, g.players[i].others)
 
 	elif a >= NUM_HAND and a < (NUM_HAND * 2): 
-		state_new, reward_new = play_update(g.deck.num_cards, index, g.hands[i], g.played, 
+		state_new, reward_new = play_update(g.deck.num_cards, (a - NUM_HAND), g.hands[i], g.played, 
 			g.players[i].known, g.players[i].hints, g.players[i].bombs, 
 			g.players[i].beliefs, g.players[i].others)
 	else: 
 		if g.hints >= 0: 
-			state_new, reward_new = hint_update(old_state)
+			state_new, reward_new = hint_update(state_old)
 		else: 
 			return (0, 0)
 
@@ -152,13 +152,13 @@ def softmax_policy(probs):
 # do the action specified by a 
 def check_action(a, player):
 	if a >= 0 and a < NUM_HAND: 
-		play("discard " + str(a))
+		print("discard " + str(a))
 		f.write("discard " + str(a))
 		g.discard(player, a)
 		
 	elif a >= NUM_HAND and a < (NUM_HAND * 2): 
-		print("play " + str(a - NUM_HAND))
-		f.write("play " + str(a - NUM_HAND))
+		print("play card # " + str(a - NUM_HAND))
+		f.write("play card # " + str(a - NUM_HAND))
 		g.play(player, (a - NUM_HAND))
 		
 	else: 
@@ -196,25 +196,29 @@ if __name__ == '__main__':
 	scores = []
 	hints = []
 
-	while g.lost == False: 
+	while g.lost() == False: 
 		count += 1
 		print("ITERATION " + str(count))
 		f.write("ITERATION " + str(count))
 
 		for i in range(NUM_PLAYERS): 
 
-			print("player " + str(i))
+			print("PLAYER " + str(i))
 			f.write("player " + str(i))
 
 			g.print_hands()
+			for i in range(NUM_PLAYERS): 
+				for j in range(NUM_HAND): 
+					f.write(g.hands[i][j].name)
 			print("hints: ", g.hints, "bombs: ", g.bombs)
 			print("played: ", g.played)
 		
+			score_old = g.score()
 			state_old = g.players[i].new_state 
 			probs = np.empty(action.shape)
 
 			for j in range(len(action)): 
-				state_new, reward_new = action_probabilites(j, i)
+				state_new, reward_new = action_probabilities(j, i)
 				probs[j] = reward_new + gamma * np.dot(g.weights, state_new)
 			# print("probabilities: " + repr(probs))
 			f.write("probabilities: " + repr(probs))
@@ -225,15 +229,18 @@ if __name__ == '__main__':
 			# do action 
 			check_action(best_action, i)
 
+			score_new = g.score()
+
 			# update weights 
-			delta = reward + gamma*np.dot(g.weights, g.players[i].new_state) - np.dot(g.weights, state_old)
+			delta = (score_new - score_old) + gamma*np.dot(g.weights, g.players[i].new_state) - np.dot(g.weights, state_old)
 			weight_new = g.weights + nu * delta * state_old
-			print("new weight" + repr(weight_new))
+			# print("new weight" + repr(weight_new))
 			f.write("new weight" + repr(weight_new))
 
 			g.weights = weight_new
 			scores.append(g.score())
-			hints.append(g.hints())
+			hints.append(g.hints)
+		print("\n")
 
 	plt.figure(1)
 	plt.title("scores")
@@ -244,6 +251,7 @@ if __name__ == '__main__':
 	plt.plot(hints)
 
 	plt.show()
+	f.close()
 
 
 

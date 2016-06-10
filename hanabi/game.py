@@ -55,7 +55,8 @@ class game(object):
 			self.players.append(player(known, self.get_others_hands(i), self.hints, self.bombs))
 
 		# weight array used for both players 
-		self.weights = np.zeros([NUM_COLORS * NUM_VALUES * NUM_HAND * NUM_PLAYERS + 2])
+		self.weights = np.empty([NUM_COLORS * NUM_VALUES * NUM_HAND * NUM_PLAYERS + 2])
+		self.weights.fill(0.1)
 
 
 	# arrays representing number of each color and number of each values for each of others' hands 
@@ -167,9 +168,9 @@ class game(object):
 		for i in range(len(self.hands)): 
 			known = self.total_known_cards(self.get_known_in_hand(i), self.played_features, self.discarded_features) 
 			if i != player: 
-				self.players[i].draw_update(known, self.get_others_hands(i), new.color, new.value, self.hints, self.bombs)
+				self.players[i].draw_update(True, known, self.get_others_hands(i), new.color, new.value, self.hints, self.bombs)
 			elif i == player: 
-				self.players[player].discard_draw_update(known, index, disc.color, disc.value, self.hints, self.bombs)	
+				self.players[player].discard_draw_update(True, known, index, disc.color, disc.value, self.hints, self.bombs)	
 
 		
 
@@ -201,8 +202,8 @@ class game(object):
 			self.discarded.append(c)
 			self.discarded_features[c.color, (c.value-1)] += 1
 			self.bombs -= 1
-		print("result: ", success, self.discarded_features, self.played_features)
-		
+		print("play result: ", success)
+
 		# if there are cards remaining, draw
 		if self.deck.num_cards > 0: 
 			new = self.deck.draw()
@@ -231,7 +232,7 @@ class game(object):
 
 	# check if the game has been lost
 	def lost(self): 
-		if self.bombs == 0: 
+		if self.bombs == 0 or self.deck.num_cards == 0: 
 			return True 
 		else: 
 			return False 
