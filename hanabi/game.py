@@ -117,7 +117,7 @@ class game(object):
 					self.hands[player][i].know('color')
 					indices.append(i)
 
-		print(indices)
+		print("hinted indices: ", indices)
 
 		# make sure we can actually hint something before updating anything
 		if indices != []: 
@@ -203,26 +203,35 @@ class game(object):
 			self.bombs -= 1
 		print("result: ", success, self.discarded_features, self.played_features)
 		
-		# draw
-		new = self.deck.draw()
-		self.hands[player].append(new)
-		print("new: ", new.color, new.value)
-
-		# update knowns and beliefs 
-		for i in range(len(self.hands)): 
-			known = self.total_known_cards(self.get_known_in_hand(i), self.played_features, self.discarded_features) 
-			if i != player: 
-				self.players[i].draw_update(known, self.get_others_hands(i), new.color, new.value, self.hints, self.bombs)
-			elif i == player: 
-				self.players[player].discard_draw_update(known, index, c.color, c.value, self.hints, self.bombs)	
-
+		# if there are cards remaining, draw
+		if self.deck.num_cards > 0: 
+			new = self.deck.draw()
+			self.hands[player].append(new)
+			print("new: ", new.color, new.value)
+		
+			# update knowns and beliefs 
+			for i in range(len(self.hands)): 
+				known = self.total_known_cards(self.get_known_in_hand(i), self.played_features, self.discarded_features) 
+				if i != player: 
+					self.players[i].draw_update(True, known, self.get_others_hands(i), new.color, new.value, self.hints, self.bombs)
+				elif i == player: 
+					self.players[player].discard_draw_update(True, known, index, c.color, c.value, self.hints, self.bombs)	
+		# if deck is empty, dont draw
+		else: 
+			for i in range(len(self.hands)): 
+				known = self.total_known_cards(self.get_known_in_hand(i), self.played_features, self.discarded_features) 
+				if i != player: 
+					self.players[i].draw_update(False, known, self.get_others_hands(i), 0, 0, self.hints, self.bombs)
+				elif i == player: 
+					self.players[player].discard_draw_update(False, known, index, c.color, c.value, self.hints, self.bombs)	
+	
 	# return score, the sum of highest-played cards over the colors
 	def score(self): 
 		return np.sum(self.played)
 
 	# check if the game has been lost
 	def lost(self): 
-		if self.bombs == 0 or self.deck == []: 
+		if self.bombs == 0: 
 			return True 
 		else: 
 			return False 

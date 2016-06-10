@@ -58,31 +58,34 @@ class player(object):
 	# when you discard then draw, remove the card at the index 
 	# change your beliefs because of the discarded card 
 	# insert a fresh one at the rightmost index with updated beliefs
-	def discard_draw_update(self, known, index, color, value, hints, bombs):
+	def discard_draw_update(self, deck, known, index, color, value, hints, bombs):
 		# self.newest_state = np.hstack(self.beliefs, self.others, self.hints, self.bombs)
-		print("old known ", self.known)
+		# print("old known ", self.known)
 		self.old_state = self.get_state()
 
 		self.known = known
-		print("known ", known)
+		# print("known ", known)
 
 		self.beliefs = np.delete(self.beliefs, index, axis=2) 
 		self.beliefs[color, (value-1), :] -= 1
-		self.beliefs = np.insert(self.beliefs, (NUM_HAND-1), (FRESH_BELIEF - known), axis=2)
-
+		if deck == True: 
+			self.beliefs = np.insert(self.beliefs, (NUM_HAND-1), (FRESH_BELIEF - known), axis=2)
+		elif deck == False: 
+			self.beliefs = np.insert(self.beliefs, (NUM_HAND-1), np.zeros(FRESH_BELIEF.size), axis=2)
 		self.hints = hints
 		self.bombs = bombs
 
 		self.new_state = self.get_state()
 
 	# when someone else draws, subtract one from the card they drew
-	def draw_update(self, known, other, color, value, hints, bombs): 
-		print("old known ", self.known)
+	def draw_update(self, deck, known, other, color, value, hints, bombs): 
+		# print("old known ", self.known)
 		self.others = other 
 		self.known = known
-		print("known ", known)
+		# print("known ", known)
 
-		self.beliefs[color, (value-1), :] -= 1
+		if deck == True: 
+			self.beliefs[color, (value-1), :] -= 1
 
 		self.hints = hints
 		self.bombs = bombs

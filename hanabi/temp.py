@@ -1,4 +1,5 @@
-def discard_update(index, hand, known, hints, bombs, beliefs, others):
+def discard_update(index, hand, known, hints, bombs, beliefs, others, known, 
+	o_beliefs, o_others, o_known):
 	disc = hand[index]
 	hints += 1
 	reward = 0
@@ -11,12 +12,7 @@ def discard_update(index, hand, known, hints, bombs, beliefs, others):
 	beliefs[color, (value-1), :] -= 1
 	beliefs = np.insert(beliefs, (NUM_HAND-1), (FRESH_BELIEF-known), axis=2)
 
-	state = np.hstack((hints, bombs))
-	for i in range(NUM_HAND): 
-		temp = beliefs[:, :, i].flatten()
-		state = np.hstack((state, (temp / np.sum(temp))))
-	state = np.hstack((state, others.flatten()))
-
+	
 	return state, reward 
 
 def play_update(index, hand, played, known, hints, bombs, beliefs, others): 
@@ -56,7 +52,6 @@ def hint_update(player, which, value, hands, hints, bombs, beliefs, known, other
 	# update my state
 	hints -= 1
 	reward = 0
-	
 
 	# hint opponent
 	indices = [] # keeps track of which cards are hinted 
@@ -93,8 +88,4 @@ def hint_update(player, which, value, hands, hints, bombs, beliefs, known, other
 					if j != (value): 
 						o_beliefs[:, j, i] = 0
 
-	# opponent chooses best action 
-
-
-
-	return state, reward
+	return reward, hints, bombs, beliefs, known, others, o_beliefs, o_known, o_others
