@@ -88,6 +88,8 @@ class player(object):
 		self.bombs = bombs
 
 		# self.newest_state = np.hstack(self.beliefs, self.others, self.hints, self.bombs)
+		self.new_state = self.get_state()
+
 
 	# when you hint 
 	def me_hint(self, hints): 
@@ -102,6 +104,8 @@ class player(object):
 	def other_hint(self, hints): 
 		self.hints = hints 
 		# self.newest_state = np.hstack(self.beliefs, self.others, self.hints, self.bombs)
+		self.new_state = self.get_state()
+
 
 	# when you get hinted, update your beliefs 
 	def hint_update(self, known, indices, which, value, hints, bombs): 
@@ -131,6 +135,8 @@ class player(object):
 
 		self.hints = hints
 		self.bombs = bombs
+
+		self.new_state = self.get_state()
 
 		# flip own bool? 
 
