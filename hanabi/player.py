@@ -18,11 +18,13 @@ NUM_COLORS = len(COLORS)
 NUM_VALUES = len(list(set(VALUES)))
 NUM_HAND = 5
 MULT_DIC = {1: 3, 2: 2, 3: 2, 4: 2, 5: 1}
+NUM_OTHERS = 1
+ACTION_NUM = NUM_HAND * 2 + NUM_OTHERS * (NUM_COLORS + NUM_VALUES)
 
 FRESH_BELIEF = np.zeros([NUM_COLORS, NUM_VALUES])
 for i in range(NUM_VALUES): 
 	FRESH_BELIEF[:, i] = MULT_DIC[i+1] #/ (len(COLORS) * len(VALUES))
-ACTION_NUM = NUM_HAND * 2 + NUM_OTHERS * (NUM_COLORS + NUM_VALUES)
+
 
 class player(object): 
 
@@ -48,7 +50,10 @@ class player(object):
 
 		for i in range(NUM_HAND): 
 			temp = self.beliefs[:, :, i].flatten()
-			state = np.hstack((state, (temp / np.sum(temp))))
+			if np.sum(temp) == 0: 
+				state = np.hstack((state, np.zeros(temp.shape)))
+			else: 
+				state = np.hstack((state, (temp / np.sum(temp))))
 		state = np.hstack((state, self.others.flatten()))
 
 		return state 

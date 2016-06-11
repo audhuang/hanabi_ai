@@ -56,7 +56,7 @@ class game(object):
 			self.players.append(player(known, self.get_others_hands(i), self.hints, self.bombs, self.played))
 
 		# weight array used for both players 
-		self.weights = np.empty([ACTION_NUM, NUM_COLORS * NUM_VALUES * NUM_HAND * NUM_PLAYERS + 2])
+		self.weights = np.empty([ACTION_NUM, NUM_COLORS * NUM_VALUES * NUM_HAND * NUM_PLAYERS + 7])
 		self.weights.fill(0.1)
 
 
@@ -164,7 +164,7 @@ class game(object):
 		if self.deck.num_cards > 0: 
 			new = self.deck.draw()
 			self.hands[player].append(new)
-			print("new: ", new.color, new.value)
+			# print("new: ", new.color, new.value)
 		
 			# update knowns and beliefs 
 			for i in range(len(self.hands)): 
@@ -216,7 +216,7 @@ class game(object):
 		if self.deck.num_cards > 0: 
 			new = self.deck.draw()
 			self.hands[player].append(new)
-			print("new: ", new.color, new.value)
+			# print("new: ", new.color, new.value)
 		
 			# update knowns and beliefs 
 			for i in range(len(self.hands)): 

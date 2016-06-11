@@ -7,6 +7,7 @@ from collections import deque
 import numpy as np 
 import matplotlib.pyplot as plt
 import sys 
+import cPickle as cp
 
 from const import (COLORS, VALUES, COLOR_NAMES)
 from const import COL_TO_IND
@@ -23,11 +24,11 @@ NUM_HAND = 5
 MULT_DIC = {1: 3, 2: 2, 3: 2, 4: 2, 5: 1}
 NUM_OTHERS = 1
 NUM_PLAYERS = NUM_OTHERS + 1
+ACTION_NUM = NUM_HAND * 2 + NUM_OTHERS * (NUM_COLORS + NUM_VALUES)
 FRESH_BELIEF = np.zeros([NUM_COLORS, NUM_VALUES])
 for i in range(NUM_VALUES): 
 	FRESH_BELIEF[:, i] = MULT_DIC[i+1] #/ (len(COLORS) * len(VALUES))
 
-ACTION_NUM = NUM_HAND * 2 + NUM_OTHERS * (NUM_COLORS + NUM_VALUES)
 
 nu = 0.1 # learning rate  
 gamma = 0.5 # discount factor 
@@ -159,12 +160,12 @@ def softmax_policy(probs):
 def check_action(a, player):
 	if a >= 0 and a < NUM_HAND: 
 		# print("discard card # " + str(a + 1))
-		f.write("discard card # " + str(a + 1) + "\n")
+		# f.write("discard card # " + str(a + 1) + "\n")
 		g.discard(player, a)
 		
 	elif a >= NUM_HAND and a < (NUM_HAND * 2): 
 		# print("play card # " + str(a - NUM_HAND + 1))
-		f.write("play card # " + str(a - NUM_HAND + 1) + "\n")
+		# f.write("play card # " + str(a - NUM_HAND + 1) + "\n")
 		g.play(player, (a - NUM_HAND))
 		
 	else: 
@@ -178,12 +179,12 @@ def check_action(a, player):
 				index = temp - i * (NUM_COLORS + NUM_VALUES)
 				if index < NUM_COLORS: 
 					# print("hint " + 'color' + str(index + 1))
-					f.write("hint " + 'color' + str(index + 1) + "\n")
+					# f.write("hint " + 'color' + str(index + 1) + "\n")
 					g.hint(player, target, 'color', index)
 
 				else: 
 					# print("hint " + 'value' + str(index - NUM_COLORS))
-					f.write("hint " + 'value' + str(index - NUM_COLORS + 1) + "\n")
+					# f.write("hint " + 'value' + str(index - NUM_COLORS + 1) + "\n")
 					g.hint(player, target, 'value', (index - NUM_COLORS + 1))
 					
 
@@ -196,46 +197,62 @@ def check_action(a, player):
 # implements q-learning
 if __name__ == '__main__':
 
-	temp_weights = np.empty([ACTION_NUM, NUM_COLORS * NUM_VALUES * NUM_HAND * NUM_PLAYERS + 2])
+	temp_weights = np.empty([ACTION_NUM, NUM_COLORS * NUM_VALUES * NUM_HAND * NUM_PLAYERS + 7])
 	temp_weights.fill(0.1)
 	temp_weights[(NUM_HAND*2):, :] = 0.2 # higher weights for hinting
 
+
 	scores = []
-	for i in range(5): 
+	
+	f = open('output_notnorm.txt', 'w')
+	for k in range(1000000): 
+		# f = open('output' + str(i) + '.txt', 'w')
+		
 		g = game()
 		g.weights = temp_weights
+		# print(g.weights)
 
-		f = open('output.txt', 'w')
 		count = 0
 		hints = []
 
+		# print("GAME: ", k)
+		if (k % 1000) == 0: 
+			print("GAME: ", k)
+
 		while True: 
 			count += 1
-			print("ITERATION " + str(count))
-			f.write("ITERATION " + str(count) + "\n")
+			# print("ITERATION " + str(count))
+			# f.write("ITERATION " + str(count) + "\n")
 
 			for i in range(NUM_PLAYERS): 
 
-				print("PLAYER " + str(i))
-				f.write("player " + str(i) + "\n")
+				# print("PLAYER " + str(i))
+				# f.write("player " + str(i) + "\n")
 
-				for j in range(NUM_HAND): 
-					f.write(g.hands[i][j].name + " ")
-				f.write("\n")
+				# for j in range(NUM_HAND): 
+				# 	f.write(g.hands[i][j].name + " ")
+				# f.write("\n")
 
-				print("hints: ", g.hints, "bombs: ", g.bombs)
-				print("played: ", g.played)
+				# print("hints: ", g.hints, "bombs: ", g.bombs)
+				# print("deck length: ", g.deck.num_cards)
+				# f.write("hints: " + str(g.hints) + "bombs: " + str(g.bombs) + "\n")
+				# f.write("played: " + repr(g.played) + "\n")
 			
 				score_old = g.score()
 				state_old = g.players[i].new_state 
-				probs = np.empty(action.shape)
+				probs = np.empty(ACTION_NUM)
 
 				for j in range(ACTION_NUM): 
-					probs[j] = np.dot(weights[j], state_old)
-				f.write("probabilities: " + repr(probs)  + "\n")
+					probs[j] = np.dot(g.weights[j], state_old)
+
+				if g.hints == 0: 
+					probs[NUM_HAND*2:] = 0
+
+				# f.write("probabilities: " + repr(probs)  + "\n")
 
 				# best_action = np.argmax(probs)
 				best = softmax_policy(probs)
+				# f.write("action index: " + str(best) + "\n")
 
 				# do action 
 				check_action(best, i)
@@ -243,10 +260,12 @@ if __name__ == '__main__':
 				score_new = g.score()
 
 				# update weights 
-				delta = (score_new - score_old) + gamma*np.dot(g.weights[best], g.players[i].new_state) - np.dot(g.weights, state_old)
+				norm_weight = g.weights[best] / np.sum(g.weights[best])
+				delta = (score_new - score_old) + gamma*np.dot(norm_weight, g.players[i].new_state) - np.dot(norm_weight, state_old)
+				# f.write("delta: " + str(delta) + "\n")
 				weight_new = g.weights[best] + nu * delta * state_old
 				# print("new weight" + repr(weight_new))
-				f.write("new weight" + repr(weight_new) + "\n")
+				# f.write("new weight: " + repr(weight_new) + "\n")
 				# print(weight_new)
 
 				g.weights[best] = weight_new
@@ -256,17 +275,22 @@ if __name__ == '__main__':
 					break 
 			
 			if g.lost() == True: 
-				print(g.weights)
+				# print(g.weights)
 				scores.append(g.score())
-				print("number of cards remaining: ", g.deck.num_cards)
+				# print("number of cards remaining: ", g.deck.num_cards)
 				temp_weights = g.weights 
+				# f.write("new all weights: " + repr(temp_weights) + "\n")
+				# f.close()
 				break 
 			
-			print("\n")
+			# print("\n")
 
 		
 
-	print("training scores", scores)
+	# f.write(repr(temp_weights))
+	cp.dump(g.weights, open('./weights.p', 'wb'))
+	print("weights", g.weights)
+	# print("training scores", scores)
 	plt.figure(1)
 	plt.title("scores")
 	plt.plot(scores)
