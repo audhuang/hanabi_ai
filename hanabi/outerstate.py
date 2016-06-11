@@ -62,36 +62,6 @@ def check_playable(hand, played):
 
 	return playable
 
-def hint_playable(hand, played): 
-	# first get list of playable cards
-	playable = check_playable(hand, played)
-	hintable = []
-
-	# iterate through playable cards. if they already have full 
-	# information, don't hint them. if they don't have full information
-	# hint either color or value. 
-	for i in playable: 
-		card = hand[i]
-		if card.know_val == True and card.know_col == False: 
-			hintable.append(("color", card.color))
-		elif card.know_val == False and card.know_col == True: 
-			hintable.append(("value", (card.value-1)))
-		elif card.know_val == False and card.know_col == False: 
-			hintable.append("value", (card.value-1))
-			hintable.append("color", card.color)
-
-	# elements and counts as tuples in decreasing order
-	hint_mult = Counter(z).most_common()
-
-	
-
-
-	# choose hint which gives most information 
-	return hintable 
-
-
-
-
 
 # rightmost discarded? opponent has? multiplicity?
 # if it's less than or equal to a played card, it's discardable 
@@ -106,6 +76,82 @@ def check_discardable(card, played):
 				discardable.append(i)
 
 	return discardable
+
+
+def hint_playable(hand, played): 
+	# first get list of playable cards
+	playable = check_playable(hand, played)
+	hintable = []
+
+	# iterate through playable cards. if they already have full 
+	# information, don't hint them. if they don't have full information
+	# hint either color or value. 
+	if playable != []
+		for i in playable: 
+			card = hand[i]
+			if card.know_val == True and card.know_col == False: 
+				hintable.append(("color", card.color))
+			elif card.know_val == False and card.know_col == True: 
+				hintable.append(("value", (card.value-1)))
+			elif card.know_val == False and card.know_col == False: 
+				hintable.append("value", (card.value-1))
+				hintable.append("color", card.color)
+
+		# elements and counts as tuples in decreasing order
+		hint_mult = Counter(z).most_common()
+
+		# choose hint which gives most information 
+		# hints with same count are ordered arbitrarily
+		# rethink hint scheme?
+		return hint_mult[0][0]
+
+	# don't re-hint
+	# choose move which gives most information? 
+	elif playable == []: 
+		col_hinted = []
+		val_hinted = []
+
+		for card in hand: 
+			if card.know_val == True: 
+				val_hinted.append((card.value - 1))
+			if card.know_col == True: 
+				col_hinted.append(card.color)
+
+		col_not_hinted = set(range(NUM_COLORS)) - set(col_hinted)
+		val_not_hinted = set(range(NUM_VALUES)) - set(val_hinted)
+
+		temp = random.randint(0, 1)
+		if temp == 0: 
+			return ("color", random.choice(col_not_hinted))
+		elif temp == 0: 
+			return ("value", random.choice(val_not_hinted))
+
+def clueless_discard(hand): 
+	no_hint = []
+	one_hint = []
+
+	for i in range(len(hand)): 
+		card = hand[i]
+
+		if card.know_val == True and card.know_col == False: 
+			one_hint.append(i)
+		elif card.know_val == False and card.know_col == True: 
+			one_hint.append(i)
+		elif card.know_val == False and card.know_col == False: 
+			# no_hint.append(i)
+			one_hint.append(i)
+
+	# if no_hint != []: 
+	# 	return random.choice(no_hint)
+	# elif no_hint != []: 
+	# 	return one_hint[0]
+
+	# oldest partial information card
+	return one_hint[0]
+
+	# discard random card 
+	# return random.choice(one_hint)
+
 
 # multiple playable cards?
 
@@ -148,20 +194,27 @@ if __name__ == '__main__':
 			# if there are no discardable cards, move on to hinting
 			# if there are hint tokens remaining
 			# (3) IF THE OPPONENT HAS A PLAYABLE CARD, HINT IT 
+			# (4) IF THE OP DOESN'T HAVE A PLAY. CARD, RANDOM HINT
+			# THAT HASNT BEEN GIVEN YET
 				elif discardable == [] and g.hints > 0: 
-					playable = hint_playable(g.hands[NUM_OTHERS-i], g.played)
-
-
+					(which, value) = hint_playable(g.hands[NUM_OTHERS-i], g.played)
+					g.hint(i, (NUM_OTHERS-i), which, value)
 			
-
-
-
-
+			# if there are no hints, discard
+			# (5) discard oldest (leftmost) unhinted card
+				elif discardable == [] and g.hints == 0: 
+					index = clueless_discard(g.hands[i])
+					g.discard(i, index)
 
 			game_score.append(g.score())
 			
+
 			if g.lost() == True: 
 				break 
+		
+		if count == 5: 
+			break 			
+
 		if g.lost() == True: 
 			break 
 
