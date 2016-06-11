@@ -180,29 +180,26 @@ def clueless_discard(hand):
 #===============================================================================
 if __name__ == '__main__':
 	
+	temp_weights = np.empty([ACTION_NUM, NUM_COLORS * NUM_VALUES * NUM_HAND * NUM_PLAYERS + 7])
+	temp_weights.fill(0.01)
+	# temp_weights[(NUM_HAND*2):, :] = 0.2 # higher weights for hinting
+
 	game_score = []
 	hints = []
 
 	for k in range(100): 
-		print("GAME: ", k)
+		if (k % 1000): 
+			print("GAME: ", k)
 		g = game()
+		g.weights = temp_weights
 		
-		# count = 0 # round in game
-
-		# a single game
-		# f = open('outerstate.txt', 'w')
-
 		while True: 
-			# count += 1
-			# f.write("ITERATION: " + str(count))
-
-			# print("ITERATION: ", count)
 
 			# each player makes moves
 			for i in range(NUM_PLAYERS): 
 
-				# print("-player ", i, "-")
-				# g.print_hands()
+				score_old = g.score()
+				state_old = g.players[i].new_state
 
 				# (1) IF THERE IS PLAYABLE CARD, PLAY IT 
 				# list of playable cards 
@@ -213,6 +210,7 @@ if __name__ == '__main__':
 				if playable != []: 
 					# print("played index ", i)
 					g.play(i, playable[-1])
+					action = i + NUM_HAND
 
 				# if there are no playable cards, move on to discards
 				# (2) IF THERE IS A DISCARDABLE CARD, DISCARD IT
@@ -225,6 +223,7 @@ if __name__ == '__main__':
 					if discardable != []: 
 						# print("discarded ", i)
 						g.discard(i, discardable[0])
+						action = i 
 
 				# if there are no discardable cards, move on to hinting
 				# if there are hint tokens remaining
@@ -235,6 +234,10 @@ if __name__ == '__main__':
 						(which, value) = hint_playable(g.hands[NUM_OTHERS-i], g.played)
 						# print("hinted ", which, " ", value)
 						g.hint(i, (NUM_OTHERS-i), which, value)
+						if which == "COLOR": 
+							action = NUM_HAND * 2 + value
+						elif which == "VALUE": 
+							action = NUM_HAND * 2 + NUM_COLORS + value
 				
 				# if there are no hints, discard
 				# (5) discard oldest (leftmost) unhinted card
@@ -242,20 +245,27 @@ if __name__ == '__main__':
 						index = clueless_discard(g.hands[i])
 						# print("clueless discarded ", i)
 						g.discard(i, index)
+						action = i
+
+				score_new = g.score()
+				norm_weight = g.weights[action] / np.sum(g.weights[action])
+				delta = (score_new - score_old) + gamma*np.dot(norm_weight, g.players[i].new_state) - np.dot(norm_weight, state_old)
+				weight_new = g.weights[action] + nu * delta * state_old
+				g.weights[action] = weight_new
 
 				
-
 				if g.lost() == True: 
 					break 
-			
-			# if count == 5: 
-			# 	break 			
-
+				
 			if g.lost() == True: 
 				game_score.append(g.score())
+				temp_weights = g.weights
 				break 
 
-	print("scores: ", game_score)
+	# print("Scores: ", game_score)
+	cp.dump(temp_weights, open('./outerstate_weights.p', 'wb'))
+	print("weights", g.weights)
+
 	print("Score Mean: ", sum(game_score) / len(game_score))
 	print("Score Variance: ", np.var(game_score))
 

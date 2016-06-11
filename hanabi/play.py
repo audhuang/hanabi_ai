@@ -185,7 +185,7 @@ def check_action(a, player):
 				else: 
 					# print("hint " + 'value' + str(index - NUM_COLORS))
 					# f.write("hint " + 'value' + str(index - NUM_COLORS + 1) + "\n")
-					g.hint(player, target, 'value', (index - NUM_COLORS + 1))
+					g.hint(player, target, 'value', (index - NUM_COLORS))
 					
 
 
