@@ -42,6 +42,7 @@ epsilon = 0.5 # softmax greed factor
 # rightmost hinted? # hinted value, but don't know color, play anyway?
 # can be placed on stack 
 def check_playable(hand, played):
+
 	playable = []  # which indices are playable
 
 	for i in range(len(hand)):
@@ -62,10 +63,22 @@ def check_playable(hand, played):
 
 	return playable
 
+def opponent_playable(hand, played): 
+	playable = []
+
+	for i in range(len(hand)): 
+
+		if played[hand[i].color] == (hand[i].value-1): 
+			playable.append(i)
+
+	return playable
+
+
+
 
 # rightmost discarded? opponent has? multiplicity?
 # if it's less than or equal to a played card, it's discardable 
-def check_discardable(card, played): 
+def check_discardable(hand, played): 
 	discardable = [] # boolean array of discardable indices
 
 	for i in range(len(hand)):
@@ -77,16 +90,34 @@ def check_discardable(card, played):
 
 	return discardable
 
+def random_hint(hand): 
+	col_hinted = []
+	val_hinted = []
+
+	for card in hand: 
+		if card.know_val == True: 
+			val_hinted.append((card.value - 1))
+		if card.know_col == True: 
+			col_hinted.append(card.color)
+
+	col_not_hinted = set(range(NUM_COLORS)) - set(col_hinted)
+	val_not_hinted = set(range(NUM_VALUES)) - set(val_hinted)
+
+	temp = random.randint(0, 1)
+	if temp == 0: 
+		return "color", random.choice(list(col_not_hinted))
+	elif temp == 1: 
+		return "value", random.choice(list(val_not_hinted))
 
 def hint_playable(hand, played): 
-	# first get list of playable cards
-	playable = check_playable(hand, played)
+
 	hintable = []
+	playable = opponent_playable(hand, played)
 
 	# iterate through playable cards. if they already have full 
 	# information, don't hint them. if they don't have full information
 	# hint either color or value. 
-	if playable != []
+	if playable != []: 
 		for i in playable: 
 			card = hand[i]
 			if card.know_val == True and card.know_col == False: 
@@ -94,37 +125,26 @@ def hint_playable(hand, played):
 			elif card.know_val == False and card.know_col == True: 
 				hintable.append(("value", (card.value-1)))
 			elif card.know_val == False and card.know_col == False: 
-				hintable.append("value", (card.value-1))
-				hintable.append("color", card.color)
+				hintable.append(("value", (card.value-1)))
+				hintable.append(("color", card.color))
 
-		# elements and counts as tuples in decreasing order
-		hint_mult = Counter(z).most_common()
+		
+		if len(hintable) > 0: 
+			# elements and counts as tuples in decreasing order
+			hint_mult = Counter(hintable).most_common()
 
-		# choose hint which gives most information 
-		# hints with same count are ordered arbitrarily
-		# rethink hint scheme?
-		return hint_mult[0][0]
+			# choose hint which gives most information 
+			# hints with same count are ordered arbitrarily
+			# rethink hint scheme?
+			return hint_mult[0][0]
+
+		else: 
+			return random_hint(hand)
 
 	# don't re-hint
 	# choose move which gives most information? 
 	elif playable == []: 
-		col_hinted = []
-		val_hinted = []
-
-		for card in hand: 
-			if card.know_val == True: 
-				val_hinted.append((card.value - 1))
-			if card.know_col == True: 
-				col_hinted.append(card.color)
-
-		col_not_hinted = set(range(NUM_COLORS)) - set(col_hinted)
-		val_not_hinted = set(range(NUM_VALUES)) - set(val_hinted)
-
-		temp = random.randint(0, 1)
-		if temp == 0: 
-			return ("color", random.choice(col_not_hinted))
-		elif temp == 0: 
-			return ("value", random.choice(val_not_hinted))
+		return random_hint(hand)
 
 def clueless_discard(hand): 
 	no_hint = []
@@ -160,64 +180,90 @@ def clueless_discard(hand):
 #===============================================================================
 if __name__ == '__main__':
 	
-	g = game()
 	game_score = []
 	hints = []
-	count = 0 # round in game
 
-	# a single game
-	while True: 
-		count += 1
-		print("ITERATION: ", count)
+	for k in range(100): 
+		print("GAME: ", k)
+		g = game()
+		
+		# count = 0 # round in game
 
-		# each player makes moves
-		for i in NUM_PLAYERS: 
+		# a single game
+		# f = open('outerstate.txt', 'w')
 
-			# (1) IF THERE IS PLAYABLE CARD, PLAY IT 
-			# list of playable cards 
-			playable = check_playable(g.hands[i], g.played)
+		while True: 
+			# count += 1
+			# f.write("ITERATION: " + str(count))
+
+			# print("ITERATION: ", count)
+
+			# each player makes moves
+			for i in range(NUM_PLAYERS): 
+
+				# print("-player ", i, "-")
+				# g.print_hands()
+
+				# (1) IF THERE IS PLAYABLE CARD, PLAY IT 
+				# list of playable cards 
+				playable = check_playable(g.hands[i], g.played)
+				# print("playable: ")
+				
+				# if multiple playable, play the rightmost one
+				if playable != []: 
+					# print("played index ", i)
+					g.play(i, playable[-1])
+
+				# if there are no playable cards, move on to discards
+				# (2) IF THERE IS A DISCARDABLE CARD, DISCARD IT
+				else: 
+					# list of discardable cards 
+					discardable = check_discardable(g.hands[i], g.played)
+					# print(discardable)
+
+					# if multiple discardable, discard oldest (leftmost)
+					if discardable != []: 
+						# print("discarded ", i)
+						g.discard(i, discardable[0])
+
+				# if there are no discardable cards, move on to hinting
+				# if there are hint tokens remaining
+				# (3) IF THE OPPONENT HAS A PLAYABLE CARD, HINT IT 
+				# (4) IF THE OP DOESN'T HAVE A PLAY. CARD, RANDOM HINT
+				# THAT HASNT BEEN GIVEN YET
+					elif discardable == [] and g.hints > 0: 
+						(which, value) = hint_playable(g.hands[NUM_OTHERS-i], g.played)
+						# print("hinted ", which, " ", value)
+						g.hint(i, (NUM_OTHERS-i), which, value)
+				
+				# if there are no hints, discard
+				# (5) discard oldest (leftmost) unhinted card
+					elif discardable == [] and g.hints == 0: 
+						index = clueless_discard(g.hands[i])
+						# print("clueless discarded ", i)
+						g.discard(i, index)
+
+				
+
+				if g.lost() == True: 
+					break 
 			
-			# if multiple playable, play the rightmost one
-			if playable != []: 
-				g.play(i, playable[-1])
-
-			# if there are no playable cards, move on to discards
-			# (2) IF THERE IS A DISCARDABLE CARD, DISCARD IT
-			else: 
-				# list of discardable cards 
-				discardable = check_discardable(g.hands[i], g.played)
-
-				# if multiple discardable, discard oldest (leftmost)
-				if discardable != []: 
-					g.discard(i, discardable[0])
-
-			# if there are no discardable cards, move on to hinting
-			# if there are hint tokens remaining
-			# (3) IF THE OPPONENT HAS A PLAYABLE CARD, HINT IT 
-			# (4) IF THE OP DOESN'T HAVE A PLAY. CARD, RANDOM HINT
-			# THAT HASNT BEEN GIVEN YET
-				elif discardable == [] and g.hints > 0: 
-					(which, value) = hint_playable(g.hands[NUM_OTHERS-i], g.played)
-					g.hint(i, (NUM_OTHERS-i), which, value)
-			
-			# if there are no hints, discard
-			# (5) discard oldest (leftmost) unhinted card
-				elif discardable == [] and g.hints == 0: 
-					index = clueless_discard(g.hands[i])
-					g.discard(i, index)
-
-			game_score.append(g.score())
-			
+			# if count == 5: 
+			# 	break 			
 
 			if g.lost() == True: 
+				game_score.append(g.score())
 				break 
-		
-		if count == 5: 
-			break 			
 
-		if g.lost() == True: 
-			break 
+	print("scores: ", game_score)
+	print("Score Mean: ", sum(game_score) / len(game_score))
+	print("Score Variance: ", np.var(game_score))
 
+	plt.figure()
+	plt.title("scores")
+	plt.plot(game_score)
+
+	plt.show()
 
 
 

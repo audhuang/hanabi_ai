@@ -41,9 +41,6 @@ def decklist():
 # print(hint_count[0][1])
 # print(hint_count[1][1])
 
-for i in range(5): 
-	print(random.randint(0, 1))
-
 
 
 
