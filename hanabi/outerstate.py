@@ -187,11 +187,13 @@ if __name__ == '__main__':
 	game_score = []
 	hints = []
 
-	for k in range(100): 
-		if (k % 1000): 
+	for k in range(1000): 
+		if (k % 100) = 0: 
 			print("GAME: ", k)
 		g = game()
 		g.weights = temp_weights
+
+		count = 0
 		
 		while True: 
 
@@ -205,12 +207,14 @@ if __name__ == '__main__':
 				# list of playable cards 
 				playable = check_playable(g.hands[i], g.played)
 				# print("playable: ")
+
+				action = -1
 				
 				# if multiple playable, play the rightmost one
 				if playable != []: 
 					# print("played index ", i)
+					action = playable[-1] + NUM_HAND
 					g.play(i, playable[-1])
-					action = i + NUM_HAND
 
 				# if there are no playable cards, move on to discards
 				# (2) IF THERE IS A DISCARDABLE CARD, DISCARD IT
@@ -222,8 +226,8 @@ if __name__ == '__main__':
 					# if multiple discardable, discard oldest (leftmost)
 					if discardable != []: 
 						# print("discarded ", i)
+						action = discardable[0]
 						g.discard(i, discardable[0])
-						action = i 
 
 				# if there are no discardable cards, move on to hinting
 				# if there are hint tokens remaining
@@ -232,20 +236,25 @@ if __name__ == '__main__':
 				# THAT HASNT BEEN GIVEN YET
 					elif discardable == [] and g.hints > 0: 
 						(which, value) = hint_playable(g.hands[NUM_OTHERS-i], g.played)
-						# print("hinted ", which, " ", value)
-						g.hint(i, (NUM_OTHERS-i), which, value)
-						if which == "COLOR": 
+						if which == "color": 
 							action = NUM_HAND * 2 + value
-						elif which == "VALUE": 
+						elif which == "value": 
 							action = NUM_HAND * 2 + NUM_COLORS + value
+
+						g.hint(i, (NUM_OTHERS-i), which, value)
+						
 				
 				# if there are no hints, discard
 				# (5) discard oldest (leftmost) unhinted card
 					elif discardable == [] and g.hints == 0: 
 						index = clueless_discard(g.hands[i])
 						# print("clueless discarded ", i)
+						action = index
 						g.discard(i, index)
-						action = i
+						
+
+				if action == -1: 
+					print(action)
 
 				score_new = g.score()
 				norm_weight = g.weights[action] / np.sum(g.weights[action])
@@ -270,10 +279,56 @@ if __name__ == '__main__':
 	print("Score Variance: ", np.var(game_score))
 
 	plt.figure()
-	plt.title("scores")
+	plt.title("training scores")
 	plt.plot(game_score)
 
+	# plt.show()
+
+	test_scores = []
+
+	# test by playing 100 games with the weights
+	for k in range(100): 
+		
+		g = game()
+		g.weights = temp_weights
+
+		print("TEST GAME: ", k)
+
+		while True: 
+
+			for i in range(NUM_PLAYERS): 
+			
+				probs = np.empty(ACTION_NUM)
+
+				for j in range(ACTION_NUM): 
+					probs[j] = np.dot(g.weights[j], state_old)
+
+				if g.hints == 0: 
+					probs[NUM_HAND*2:] = 0
+
+				best = softmax_policy(probs)
+
+				# do action 
+				check_action(best, i)
+
+				if g.lost() == True: 
+					break 
+			
+			if g.lost() == True: 
+				test_scores.append(g.score())
+				break 
+
+	
+	print("weights", g.weights)
+	print("Score Mean: ", sum(test_scores) / len(test_scores))
+	print("Score Variance: ", np.var(test_scores))
+
+	plt.figure()
+	plt.title("testing scores")
+	plt.plot(test_scores)
+
 	plt.show()
+
 
 
 
